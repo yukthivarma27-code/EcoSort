@@ -72,7 +72,7 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
     }
   };
 
-  // Handle File Upload
+  // Handle File Upload with automatic downscaling for fast network transfer
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -82,7 +82,7 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
       return;
     }
 
-    if (file.size === 0 || file.size > 25 * 1024 * 1024) {
+    if (file.size === 0 || file.size > 30 * 1024 * 1024) {
       setErrorMessage('Please upload or capture a clear image of a waste item.');
       return;
     }
@@ -90,7 +90,39 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
     setErrorMessage(null);
     const reader = new FileReader();
     reader.onload = () => {
-      setSelectedImage(reader.result as string);
+      const rawDataUrl = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 1600;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          setSelectedImage(compressedDataUrl);
+        } else {
+          setSelectedImage(rawDataUrl);
+        }
+      };
+      img.onerror = () => {
+        setSelectedImage(rawDataUrl);
+      };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   };
