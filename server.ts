@@ -134,7 +134,7 @@ When isValidWaste is true:
       });
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
+        model: 'gemini-flash-latest',
         contents: { parts: contentsParts },
         config: {
           systemInstruction,
@@ -204,10 +204,7 @@ When isValidWaste is true:
 
       const rawJson = response.text;
       if (!rawJson) {
-        return res.status(422).json({ 
-          error: 'Please upload or capture a clear image of a waste item.',
-          isValidWaste: false 
-        });
+        throw new Error('Empty response from vision AI model.');
       }
 
       const result = JSON.parse(rawJson);
@@ -217,7 +214,7 @@ When isValidWaste is true:
         return res.status(422).json({ 
           error: 'Please upload or capture a clear image of a waste item.',
           isValidWaste: false,
-          rejectionReason: result.rejectionReason || 'Low confidence or non-waste item'
+          rejectionReason: result.rejectionReason || 'Non-waste or ambiguous item'
         });
       }
 
@@ -227,6 +224,11 @@ When isValidWaste is true:
       return res.json(result);
     } catch (error: any) {
       console.error('Classification error:', error);
+      // If AI model encountered an error, fallback gracefully to the local classification engine
+      const fallbackResult = generateFallbackClassification(req.body?.textPrompt || req.body?.sampleName || '', req.body?.imageBase64);
+      if (fallbackResult && fallbackResult.isValidWaste && fallbackResult.confidence >= 60) {
+        return res.json(fallbackResult);
+      }
       return res.status(422).json({ 
         error: 'Please upload or capture a clear image of a waste item.',
         isValidWaste: false 
