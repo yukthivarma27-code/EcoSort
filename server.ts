@@ -13,8 +13,9 @@ async function startServer() {
 
   // Initialize Gemini GenAI client safely
   const getAiClient = () => {
+    dotenv.config();
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    if (!apiKey || apiKey.trim() === '') {
       console.warn('GEMINI_API_KEY is not configured in process.env');
       return null;
     }
