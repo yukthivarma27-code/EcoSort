@@ -1,4 +1,4 @@
-# EcoSort AI
+# EcoSort AI — Waste Intelligence Platform
 
 ![EcoSort AI Banner](https://img.shields.io/badge/EcoSort--AI-Waste%20Intelligence%20Platform-10B981?style=for-the-badge&logo=eco&logoColor=white)
 ![React](https://img.shields.io/badge/React-19.0-61DAFB?style=for-the-badge&logo=react)
@@ -7,128 +7,137 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=for-the-badge&logo=tailwindcss)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)
 
-**EcoSort AI** is an AI-powered waste classification web application that uses computer vision to identify different types of waste from an uploaded image or live camera capture and provides appropriate disposal recommendations to encourage sustainable waste management.
-
-The application aims to bridge the gap between waste generation and environmental responsibility by providing users with instant, actionable guidance on how to properly segregate recyclables, compostables, hazardous materials, and general waste. By leveraging state-of-the-art computer vision models and real-time environmental metrics, EcoSort AI empowers communities, municipal centers, and households to reduce landfill impact and maximize recycling efficiency.
-
-Designed with a sleek, dark-mode modern interface, EcoSort AI combines interactive AI scanning feedback, confidence scoring, step-by-step disposal procedures, and localized upcycling ideas into an intuitive, accessible experience across all modern desktop and mobile devices.
+**EcoSort AI** is an AI-powered waste classification web application that uses computer vision to identify different types of waste from an uploaded image or live camera capture and provides actionable disposal, segregation, and recycling recommendations.
 
 ---
 
-## Features
+## 🌟 Key Features
 
-- **AI-Powered Waste Classification**: Instant identification of items using computer vision and deep learning vision models.
-- **Upload Image from Device**: Easily drag-and-drop or select images from your computer or phone.
-- **Capture Image Using Camera**: Direct integrated camera feed to capture snapshots of physical waste items in real time.
-- **Image Preview Before Prediction**: Visual confirmation modal to crop or inspect target materials before submitting for AI analysis.
-- **AI Scanning Animation**: Interactive, laser-line scanning animation providing visual feedback during model inference.
-- **Waste Category Prediction**: Categorizes items into *Recyclables, Compostable/Organic, E-Waste/Hazardous, Landfill,* or *Upcycling Candidate*.
-- **Confidence Score**: Transparent percentage reliability score for each detected waste classification.
-- **Disposal Recommendations**: Tailored, step-by-step instructions on cleaning, sorting, and bin selection.
-- **Recycling Tips**: Environmental facts and creative upcycling suggestions for reusable materials.
-- **Responsive UI**: Seamlessly optimized layout for smartphones, tablets, and desktop displays.
-- **Dark Mode**: Sleek, high-contrast dark theme designed to reduce eye strain and enhance visuals.
-- **Modern Premium Interface**: Dynamic micro-animations, glassmorphism cards, and interactive data visualization charts.
+- 📸 **Live Camera & Photo Upload**: Capture photos directly via webcam or drag-and-drop images.
+- 🔍 **Real-Time Image Preview**: Crop, inspect, and verify target objects before initiating analysis.
+- ⚡ **AI Waste Classification**: Classifies waste items across 12 distinct waste categories.
+- 🎯 **Confidence Scoring**: Transparent probability scores for classifications.
+- ♻️ **Actionable Disposal Guidance**: Step-by-step cleaning, segregation, and municipal bin routing instructions.
+- 📊 **Environmental Impact Metrics**: Calculates estimated CO₂ emission reductions, energy conserved, and water saved.
+- 🎨 **Modern Dark-Mode UI**: Built with React 19, Tailwind CSS v4, smooth animations, and interactive charts.
 
 ---
 
-## Tech Stack
-
-### Frontend
-- **React** (v19) — UI component architecture
-- **TypeScript** — Static typing and robust developer tooling
-- **Vite** — High-performance development server and asset bundler
-- **Tailwind CSS** (v4) — Utility-first styling framework
-- **Framer Motion** (`motion`) — Smooth UI animations and scanning transitions
-- **Lucide React** — Icon library for clean visual navigation
-
-### Backend
-- **Express.js / Node.js** — API server and static asset host
-- **Google Gemini API** (`@google/genai`) — Vision AI classification engine
-- *Backend (Architecture Support)*: Flask / FastAPI, TensorFlow / Keras, OpenCV
-
----
-
-## Folder Structure
+## 🏗️ Project Architecture
 
 ```text
 ecosort-ai/
-├── public/                  # Public static assets
-├── src/
-│   ├── assets/              # Icons and image assets
-│   ├── components/          # Reusable UI components
+├── src/                         # Frontend application (React 19 + TypeScript)
+│   ├── components/              # Reusable UI components
 │   │   ├── AnalyticsDashboard.tsx   # Real-time recycling metrics & charts
 │   │   ├── Footer.tsx               # App footer & legal triggers
 │   │   ├── Header.tsx               # Navigation bar & active tab selector
 │   │   ├── KnowledgeCatalog.tsx     # ISO 14001 waste sorting guidelines
 │   │   ├── LegalModals.tsx          # Privacy policy & terms of service
 │   │   └── WasteClassifier.tsx      # Main camera & photo scanning module
-│   ├── data/                # Preset item datasets & sample classifications
-│   ├── types.ts             # TypeScript interfaces for classification reports
-│   ├── App.tsx              # Core app container & router logic
-│   ├── index.css            # Global CSS styles & Tailwind imports
-│   └── main.tsx             # React DOM root entry point
-├── server.ts                # Express backend server with Vite middleware integration
-├── index.html               # Main HTML entry file
-├── package.json             # NPM dependencies and scripts
-├── tsconfig.json            # TypeScript compiler configuration
-└── vite.config.ts           # Vite build and Tailwind plugin setup
+│   ├── data/                    # Preset items & sample classifications
+│   ├── types.ts                 # TypeScript data contracts & schemas
+│   ├── App.tsx                  # Core app container & navigation logic
+│   ├── index.css                # Global CSS styles & Tailwind imports
+│   └── main.tsx                 # React DOM root entry point
+│
+├── ml/                          # Machine learning pipeline
+│   ├── scripts/
+│   │   ├── download_dataset.py  # Kaggle dataset downloader
+│   │   └── inspect_dataset.py   # Dataset integrity, resolution & class distribution inspector
+│   ├── dataset_report.md        # Comprehensive dataset summary report
+│   └── dataset_report.json      # Structured dataset metrics & statistics
+│
+├── dataset/                     # Local waste classification dataset (gitignored)
+│   └── raw/
+│       └── garbage_classification/
+│
+├── server.ts                    # Express backend server with Vite integration
+├── index.html                   # HTML entry point
+├── package.json                 # Node dependencies & npm scripts
+├── tsconfig.json                # TypeScript configuration
+├── vite.config.ts               # Vite bundler configuration
+└── .gitignore                   # Exclusions for node_modules, .venv, dataset, and secrets
 ```
 
 ---
 
-## Installation
+## 📦 Kaggle Waste Classification Dataset
 
-Follow these steps to set up and run EcoSort AI on your local machine:
+EcoSort AI uses the **Garbage Classification (12 Classes)** dataset from Kaggle (`mostafaabla/garbage-classification`), containing **15,515 images** across 12 categories:
 
-1. **Clone the Repository**:
+| # | Class Name | Category | Primary Bin |
+| :---: | :--- | :--- | :--- |
+| 1 | **battery** | E-Waste & Hazardous | Red Bin (E-Waste / Hazardous) |
+| 2 | **biological** | Compostable & Organic | Green Bin (Compost/Organics) |
+| 3 | **brown-glass** | Glass & Glassware | Blue Bin (Recycling) |
+| 4 | **cardboard** | Paper & Cardboard | Yellow Bin (Paper/Cardboard) |
+| 5 | **clothes** | Textile / Upcycling | Donation / Upcycle Hub |
+| 6 | **green-glass** | Glass & Glassware | Blue Bin (Recycling) |
+| 7 | **metal** | Metal & Aluminum | Blue Bin (Recycling) |
+| 8 | **paper** | Paper & Cardboard | Yellow Bin (Paper/Cardboard) |
+| 9 | **plastic** | Recyclable Plastics | Blue Bin (Recycling) |
+| 10 | **shoes** | Footwear / Reuse | Donation / Special Depot |
+| 11 | **trash** | Non-Recyclable Landfill | Gray Bin (General Landfill) |
+| 12 | **white-glass** | Glass & Glassware | Blue Bin (Recycling) |
+
+---
+
+## 🚀 Quick Start Guide
+
+### 1. Frontend & Server Setup
+
+1. **Clone the repository**:
    ```bash
    git clone https://github.com/yukthivarma27-code/EcoSort.git
    cd ecosort-ai
    ```
 
-2. **Install Dependencies**:
+2. **Install Node dependencies**:
    ```bash
    npm install
    ```
 
 3. **Configure Environment Variables** *(Optional)*:
-   Create a `.env` file in the project root to configure your API keys:
+   Ensure your `.env` file contains your configuration:
    ```env
    GEMINI_API_KEY=your_gemini_api_key_here
+   APP_URL=http://localhost:3000
    ```
 
-4. **Run the Development Server**:
+4. **Start the Development Server**:
    ```bash
    npm run dev
    ```
+   Open your browser at **[http://localhost:3000](http://localhost:3000)**.
 
-5. **Open in Browser**:
-   Navigate to [http://localhost:3000](http://localhost:3000) or [http://127.0.0.1:3000](http://127.0.0.1:3000) to view the application.
-
----
-
-## How It Works
-
-1. **Select Input Method**: Choose to upload an image from your device or activate your webcam for live camera capture.
-2. **Preview & Scan**: Review your photo in the preview modal and click **Scan Item**.
-3. **AI Inference**: The vision engine processes the image, detects material composition, and calculates confidence scores.
-4. **Get Recommendations**: View bin routing, specific cleaning/segregation steps, CO₂/energy savings, and upcycling ideas.
+5. **Build for Production**:
+   ```bash
+   npm run build
+   ```
 
 ---
 
-## Contributing
+### 2. Machine Learning Pipeline Setup
 
-Contributions are welcome! If you would like to contribute to EcoSort AI:
+1. **Install Python ML Dependencies**:
+   ```bash
+   pip install kagglehub pillow numpy scikit-learn tqdm
+   ```
 
-1. Fork the repository.
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the branch (`git checkout -b feature/AmazingFeature`).
-5. Open a Pull Request.
+2. **Download the Dataset**:
+   ```bash
+   python ml/scripts/download_dataset.py
+   ```
+
+3. **Inspect the Dataset**:
+   ```bash
+   python ml/scripts/inspect_dataset.py
+   ```
+   This verifies all image files, checks for corruption, detects duplicate files, and outputs `ml/dataset_report.md`.
 
 ---
 
-## License
+## 📄 License
 
-This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+This project is open source and available under the **MIT License**.

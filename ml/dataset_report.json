@@ -1,0 +1,69 @@
+{
+  "dataset_root": "C:\\Users\\yukth\\Downloads\\ecosort-ai\\dataset\\raw\\garbage_classification",
+  "num_classes": 12,
+  "class_names": [
+    "battery",
+    "biological",
+    "brown-glass",
+    "cardboard",
+    "clothes",
+    "green-glass",
+    "metal",
+    "paper",
+    "plastic",
+    "shoes",
+    "trash",
+    "white-glass"
+  ],
+  "total_images": 15515,
+  "valid_images": 15515,
+  "corrupted_images_count": 0,
+  "corrupted_images": [],
+  "duplicate_groups_count": 18,
+  "duplicate_images_count": 19,
+  "class_distribution": {
+    "battery": 945,
+    "biological": 985,
+    "brown-glass": 607,
+    "cardboard": 891,
+    "clothes": 5325,
+    "green-glass": 629,
+    "metal": 769,
+    "paper": 1050,
+    "plastic": 865,
+    "shoes": 1977,
+    "trash": 697,
+    "white-glass": 775
+  },
+  "class_percentages": {
+    "battery": 6.09,
+    "biological": 6.35,
+    "brown-glass": 3.91,
+    "cardboard": 5.74,
+    "clothes": 34.32,
+    "green-glass": 4.05,
+    "metal": 4.96,
+    "paper": 6.77,
+    "plastic": 5.58,
+    "shoes": 12.74,
+    "trash": 4.49,
+    "white-glass": 5.0
+  },
+  "formats_distribution": {
+    "JPEG": 15481,
+    "PNG": 34
+  },
+  "modes_distribution": {
+    "RGB": 15481,
+    "P": 34
+  },
+  "dimension_stats": {
+    "min_width": 51,
+    "max_width": 888,
+    "mean_width": 349.8223009990332,
+    "min_height": 100,
+    "max_height": 936,
+    "mean_height": 351.705833064776
+  },
+  "imbalance_ratio_max_to_min": 8.77
+}

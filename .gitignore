@@ -1,8 +1,33 @@
+# Dependencies
 node_modules/
-build/
+.venv/
+venv/
+ENV/
+
+# Production builds & artifacts
 dist/
+build/
 coverage/
-.DS_Store
-*.log
+
+# Environment and secrets
 .env*
 !.env.example
+
+# Python cache and byte-compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+.cache/
+
+# Datasets and large model weights
+dataset/
+*.keras
+*.h5
+*.tflite
+*.pt
+*.pth
+
+# Operating system files
+.DS_Store
+Thumbs.db
