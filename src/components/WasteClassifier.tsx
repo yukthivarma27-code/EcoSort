@@ -78,7 +78,12 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setErrorMessage('Please select a valid image file (JPEG, PNG, WEBP).');
+      setErrorMessage('Please upload or capture a clear image of a waste item.');
+      return;
+    }
+
+    if (file.size === 0 || file.size > 25 * 1024 * 1024) {
+      setErrorMessage('Please upload or capture a clear image of a waste item.');
       return;
     }
 
@@ -94,6 +99,7 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
   const handlePresetSelect = (presetId: string) => {
     const preset = PRESET_SAMPLES.find((p) => p.id === presetId);
     if (!preset) return;
+    setErrorMessage(null);
     setSelectedPresetId(presetId);
     setSelectedImage(preset.imageUrl);
     setTextQuery(preset.title);
@@ -101,9 +107,15 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
 
   // Execute Classification Call
   const runClassification = async () => {
+    if (!selectedImage && !textQuery.trim()) {
+      setErrorMessage('Please upload or capture a clear image of a waste item.');
+      return;
+    }
+
     setIsScanning(true);
     setScanProgress(15);
     setErrorMessage(null);
+    setCurrentResult(null);
 
     // Progress animation interval
     const interval = setInterval(() => {
@@ -135,11 +147,17 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
       clearInterval(interval);
       setScanProgress(100);
 
-      if (!res.ok) {
-        throw new Error(`Classification server returned status ${res.status}`);
+      const responseData = await res.json().catch(() => null);
+
+      if (!res.ok || !responseData || responseData.isValidWaste === false || responseData.error) {
+        const message = responseData?.error || 'Please upload or capture a clear image of a waste item.';
+        setIsScanning(false);
+        setCurrentResult(null);
+        setErrorMessage(message);
+        return;
       }
 
-      const data: ClassificationResult = await res.json();
+      const data: ClassificationResult = responseData;
       if (selectedImage) {
         data.imageUrl = selectedImage;
       }
@@ -152,8 +170,9 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
     } catch (err: any) {
       clearInterval(interval);
       setIsScanning(false);
+      setCurrentResult(null);
       console.error('Scan error:', err);
-      setErrorMessage('An error occurred during vision processing. Please try again.');
+      setErrorMessage('Please upload or capture a clear image of a waste item.');
     }
   };
 
@@ -279,6 +298,7 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                     onClick={() => {
                       setInputMode('upload');
                       stopCamera();
+                      setErrorMessage(null);
                     }}
                     className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
                       inputMode === 'upload' ? 'bg-slate-800 text-emerald-400 font-semibold' : 'text-slate-400 hover:text-white'
@@ -289,6 +309,7 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                   <button
                     onClick={() => {
                       setInputMode('camera');
+                      setErrorMessage(null);
                       startCamera();
                     }}
                     className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
@@ -301,6 +322,7 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                     onClick={() => {
                       setInputMode('presets');
                       stopCamera();
+                      setErrorMessage(null);
                     }}
                     className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
                       inputMode === 'presets' ? 'bg-slate-800 text-emerald-400 font-semibold' : 'text-slate-400 hover:text-white'
@@ -312,6 +334,7 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                     onClick={() => {
                       setInputMode('text');
                       stopCamera();
+                      setErrorMessage(null);
                     }}
                     className={`px-3 py-1.5 rounded-lg font-medium transition-colors ${
                       inputMode === 'text' ? 'bg-slate-800 text-emerald-400 font-semibold' : 'text-slate-400 hover:text-white'

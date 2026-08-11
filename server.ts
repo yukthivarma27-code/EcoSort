@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
@@ -42,58 +44,86 @@ async function startServer() {
       const { imageBase64, textPrompt, sampleName } = req.body;
 
       if (!imageBase64 && !textPrompt && !sampleName) {
-        return res.status(400).json({ error: 'Please provide an image, item description, or sample item name.' });
+        return res.status(422).json({ 
+          error: 'Please upload or capture a clear image of a waste item.',
+          isValidWaste: false 
+        });
       }
 
       const ai = getAiClient();
 
       if (!ai) {
-        // Fallback intelligent classification generator if API key is not ready or during keyless dev
-        const fallbackResult = generateFallbackClassification(textPrompt || sampleName || 'Plastic Container');
+        // Fallback intelligent classification generator if API key is not configured or during keyless dev
+        const fallbackResult = generateFallbackClassification(textPrompt || sampleName || '');
+        if (!fallbackResult || !fallbackResult.isValidWaste || fallbackResult.confidence < 60) {
+          return res.status(422).json({ 
+            error: 'Please upload or capture a clear image of a waste item.',
+            isValidWaste: false 
+          });
+        }
         return res.json(fallbackResult);
       }
 
       const systemInstruction = `
-You are EcoSort AI Vision Engine v2.4, an enterprise-grade AI Waste Intelligence & Computer Vision classification model built by a commercial sustainability technology firm.
-Your task is to analyze the provided image or text description of waste material and provide a detailed, accurate waste classification report in JSON format.
+You are EcoSort AI Waste Intelligence & Validation Engine.
+Your primary task is to perform a strict two-stage analysis on the provided image or description:
 
-Analyze the material, identify its primary composition, dictate precise segregation steps according to environmental standards, calculate carbon/energy/water savings, assign a bin routing category, and provide upcycling recommendations.
+STAGE 1: WASTE-RELEVANCE VALIDATION (MANDATORY GATEKEEPER)
+Determine if the provided image or text clearly depicts a valid recyclable, compostable, reusable, or disposable waste item, garbage, debris, scrap, discarded packaging, container, or unwanted item intended for disposal or recycling.
 
-Select the category strictly from:
-- 'Recyclable Plastics'
-- 'Paper & Cardboard'
-- 'Compostable & Organic'
-- 'E-Waste & Electronics'
-- 'Glass & Glassware'
-- 'Metal & Aluminum'
-- 'Hazardous & Special'
-- 'Non-Recyclable Landfill'
+You MUST REJECT and set isValidWaste = false if the input depicts or contains:
+- A human, person, face, body part, hand, portrait, or selfie
+- A live animal, bird, fish, reptile, insect, or household pet
+- A vehicle in use (car, truck, airplane, boat, motorcycle, bicycle)
+- A scenic landscape, natural vista, mountain, forest, sunset, sky, room interior, or scenery (without discarded waste in primary focus)
+- A building, house, office, architecture, or furniture in active use
+- A screenshot, digital UI, software code, text document, book page, document, paper note, invoice, meme, or graphic design
+- A completely blank, pitch-black, washed-out, unrecognizable, blurry, or corrupted image
+- An active valuable device/object not being discarded or classified as waste material
 
-Select the primaryBin strictly from:
-- 'Blue Bin (Recycling)'
-- 'Yellow Bin (Paper/Cardboard)'
-- 'Green Bin (Compost/Organics)'
-- 'Red Bin (E-Waste / Hazardous)'
-- 'Gray Bin (General Landfill)'
+If isValidWaste is false:
+- Set isValidWaste = false
+- Set confidence = 0
+- Set rejectionReason = "Non-waste or unclear image detected"
+- Do NOT force the item into any waste category.
 
-Select binColor based on the bin:
-- Blue Bin -> '#2563eb'
-- Yellow Bin -> '#eab308'
-- Green Bin -> '#16a34a'
-- Red Bin -> '#dc2626'
-- Gray Bin -> '#4b5563'
+STAGE 2: WASTE CLASSIFICATION (Only when isValidWaste is true)
+Classify the waste item into one of the 12 verified dataset classes:
+1. 'battery' -> Category: 'E-Waste & Electronics', Primary Bin: 'Red Bin (E-Waste / Hazardous)', Bin Color: '#dc2626'
+2. 'biological' -> Category: 'Compostable & Organic', Primary Bin: 'Green Bin (Compost/Organics)', Bin Color: '#16a34a'
+3. 'brown-glass' -> Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
+4. 'cardboard' -> Category: 'Paper & Cardboard', Primary Bin: 'Yellow Bin (Paper/Cardboard)', Bin Color: '#eab308'
+5. 'clothes' -> Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563'
+6. 'green-glass' -> Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
+7. 'metal' -> Category: 'Metal & Aluminum', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
+8. 'paper' -> Category: 'Paper & Cardboard', Primary Bin: 'Yellow Bin (Paper/Cardboard)', Bin Color: '#eab308'
+9. 'plastic' -> Category: 'Recyclable Plastics', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
+10. 'shoes' -> Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563'
+11. 'trash' -> Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563'
+12. 'white-glass' -> Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
+
+CONFIDENCE SCORING:
+Assign a confidence rating from 0 to 100.
+If the confidence score is strictly less than 60%, or if you are not confident the image is a waste item, you MUST set isValidWaste = false.
 `;
 
       const contentsParts: any[] = [];
 
       if (imageBase64) {
-        // Clean up base64 prefix if present
         let pureBase64 = imageBase64;
         let mimeType = 'image/jpeg';
         if (imageBase64.includes(';base64,')) {
           const parts = imageBase64.split(';base64,');
           mimeType = parts[0].replace('data:', '');
           pureBase64 = parts[1];
+        }
+
+        // Validate base64 image integrity and size
+        if (!pureBase64 || pureBase64.length < 50 || !mimeType.startsWith('image/')) {
+          return res.status(422).json({ 
+            error: 'Please upload or capture a clear image of a waste item.',
+            isValidWaste: false 
+          });
         }
 
         contentsParts.push({
@@ -104,9 +134,9 @@ Select binColor based on the bin:
         });
       }
 
-      const promptText = textPrompt || sampleName || 'Analyze and classify this waste item for optimal recycling or segregation.';
+      const promptText = textPrompt || sampleName || 'Analyze this image and verify if it is a valid waste item, then classify it.';
       contentsParts.push({
-        text: `Classify this waste item: ${promptText}. Provide structured JSON according to schema.`,
+        text: `Validate waste relevance and classify: ${promptText}. Provide structured JSON according to schema.`,
       });
 
       const response = await ai.models.generateContent({
@@ -118,6 +148,18 @@ Select binColor based on the bin:
           responseSchema: {
             type: Type.OBJECT,
             properties: {
+              isValidWaste: { 
+                type: Type.BOOLEAN, 
+                description: 'True ONLY if the input clearly depicts a valid waste item, garbage, or recyclable material. False for people, animals, vehicles, landscapes, screenshots, or non-waste.' 
+              },
+              rejectionReason: { 
+                type: Type.STRING, 
+                description: 'Reason for rejection if isValidWaste is false (e.g., person, landscape, screenshot, unclear image)' 
+              },
+              datasetClass: { 
+                type: Type.STRING, 
+                description: 'One of the 12 dataset classes: battery, biological, brown-glass, cardboard, clothes, green-glass, metal, paper, plastic, shoes, trash, white-glass' 
+              },
               itemName: { type: Type.STRING, description: 'Specific title of identified waste item' },
               brandOrModel: { type: Type.STRING, description: 'Optional brand, model, or material code if visible' },
               category: { type: Type.STRING, description: 'Waste category name' },
@@ -159,19 +201,8 @@ Select binColor based on the bin:
               aiNotes: { type: Type.STRING, description: 'Computer vision observation notes detailing material highlights' },
             },
             required: [
-              'itemName',
-              'category',
-              'primaryBin',
-              'binColor',
+              'isValidWaste',
               'confidence',
-              'recyclabilityScore',
-              'contaminationRisk',
-              'composition',
-              'segregationSteps',
-              'impact',
-              'upcyclingIdeas',
-              'localDisposalNotice',
-              'aiNotes',
             ],
           },
         },
@@ -179,147 +210,240 @@ Select binColor based on the bin:
 
       const rawJson = response.text;
       if (!rawJson) {
-        throw new Error('Empty response from AI vision model.');
+        return res.status(422).json({ 
+          error: 'Please upload or capture a clear image of a waste item.',
+          isValidWaste: false 
+        });
       }
 
       const result = JSON.parse(rawJson);
+
+      // Gatekeeper: Reject non-waste images and low-confidence predictions (<60%)
+      if (!result.isValidWaste || typeof result.confidence !== 'number' || result.confidence < 60) {
+        return res.status(422).json({ 
+          error: 'Please upload or capture a clear image of a waste item.',
+          isValidWaste: false,
+          rejectionReason: result.rejectionReason || 'Low confidence or non-waste item'
+        });
+      }
+
       result.id = 'scan-' + Date.now();
       result.timestamp = new Date().toISOString();
 
       return res.json(result);
     } catch (error: any) {
       console.error('Classification error:', error);
-      // Fallback response on error
-      const fallback = generateFallbackClassification(req.body?.textPrompt || req.body?.sampleName || 'Waste Item');
-      return res.json(fallback);
+      return res.status(422).json({ 
+        error: 'Please upload or capture a clear image of a waste item.',
+        isValidWaste: false 
+      });
     }
   });
 
-  // Fallback intelligent classification generator
-  function generateFallbackClassification(query: string) {
-    const qLower = query.toLowerCase();
-    let itemName = 'Polyethylene Packaging / Bottle';
-    let category = 'Recyclable Plastics';
-    let primaryBin = 'Blue Bin (Recycling)';
-    let binColor = '#2563eb';
-    let recyclabilityScore = 92;
-    let contaminationRisk = 'Low';
-    let co2SavedKg = 0.18;
-    let energySavedKwh = 0.35;
-    let waterSavedLiters = 1.4;
-    let decompositionYears = 450;
-    let composition = [
-      { material: 'PET Plastic (#1)', percentage: 95 },
-      { material: 'PP Plastic Lid (#5)', percentage: 5 },
-    ];
-    let segregationSteps = [
-      'Empty any liquid or residue contents into sink',
-      'Rinse lightly with cold water to avoid mold formation',
-      'Keep cap securely attached or crush bottle prior to binning',
-    ];
-    let upcyclingIdeas = [
-      'Repurpose as a drip irrigation funnel for potted plants',
-      'Transform into organized storage for small hardware or craft items',
-    ];
-
-    if (qLower.includes('circuit') || qLower.includes('battery') || qLower.includes('phone') || qLower.includes('e-waste') || qLower.includes('laptop') || qLower.includes('lithium')) {
-      itemName = 'Electronic Circuit / Battery Module';
-      category = 'E-Waste & Electronics';
-      primaryBin = 'Red Bin (E-Waste / Hazardous)';
-      binColor = '#dc2626';
-      recyclabilityScore = 85;
-      contaminationRisk = 'High';
-      co2SavedKg = 1.45;
-      energySavedKwh = 4.2;
-      waterSavedLiters = 18.0;
-      decompositionYears = 1000;
-      composition = [
-        { material: 'Fiberglass & Copper', percentage: 60 },
-        { material: 'Lithium / Cobalt Elements', percentage: 25 },
-        { material: 'Solder Alloys', percentage: 15 },
-      ];
-      segregationSteps = [
-        'Tape contact terminals with clear electrical insulation tape',
-        'Do NOT place in standard municipal curbside recycling or garbage',
-        'Drop off at an authorized EcoSort E-Waste Collection Hub',
-      ];
-      upcyclingIdeas = [
-        'Extract high-purity rare earth minerals through certified metallurgy',
-        'Repurpose functional microchips for secondary DIY IoT projects',
-      ];
-    } else if (qLower.includes('peel') || qLower.includes('banana') || qLower.includes('food') || qLower.includes('apple') || qLower.includes('compost') || qLower.includes('organic')) {
-      itemName = 'Organic Food Residuals';
-      category = 'Compostable & Organic';
-      primaryBin = 'Green Bin (Compost/Organics)';
-      binColor = '#16a34a';
-      recyclabilityScore = 100;
-      contaminationRisk = 'Low';
-      co2SavedKg = 0.42;
-      energySavedKwh = 0.12;
-      waterSavedLiters = 0.8;
-      decompositionYears = 0.1;
-      composition = [
-        { material: 'Organic Cellulose & Water', percentage: 92 },
-        { material: 'Natural Minerals', percentage: 8 },
-      ];
-      segregationSteps = [
-        'Remove any non-compostable produce stickers or plastic ties',
-        'Place directly into brown paper bag or unlined green compost caddy',
-        'Deposit into green municipal organics bin',
-      ];
-      upcyclingIdeas = [
-        'Incorporate into home vermicomposting bin for nutrient-rich soil humus',
-        'Steep banana peels in water to create potassium-rich organic fertilizer',
-      ];
-    } else if (qLower.includes('box') || qLower.includes('cardboard') || qLower.includes('paper') || qLower.includes('newspaper')) {
-      itemName = 'Corrugated Packaging Material';
-      category = 'Paper & Cardboard';
-      primaryBin = 'Yellow Bin (Paper/Cardboard)';
-      binColor = '#eab308';
-      recyclabilityScore = 96;
-      contaminationRisk = 'Low';
-      co2SavedKg = 0.32;
-      energySavedKwh = 0.85;
-      waterSavedLiters = 7.5;
-      decompositionYears = 0.25;
-      composition = [
-        { material: 'Unbleached Kraft Pulp', percentage: 98 },
-        { material: 'Adhesive Starch', percentage: 2 },
-      ];
-      segregationSteps = [
-        'Remove synthetic packing tape and plastic shipping pouches',
-        'Flatten box completely flat to maximize container capacity',
-        'Keep dry; do not mix grease-stained pizza boxes with clean cardboard',
-      ];
-      upcyclingIdeas = [
-        'Use as weed-suppressing sheet mulch under garden beds',
-        'Reuse as protective floor lining during painting or DIY maintenance',
-      ];
+  // Fallback intelligent classification generator with strict waste validation
+  function generateFallbackClassification(query: string): any {
+    if (!query || query.trim().length === 0) {
+      return null;
     }
 
-    return {
-      id: 'scan-' + Date.now(),
-      timestamp: new Date().toISOString(),
-      itemName,
-      brandOrModel: 'Generic Consumer Item',
-      category,
-      primaryBin,
-      binColor,
-      confidence: 96,
-      recyclabilityScore,
-      contaminationRisk,
-      composition,
-      segregationSteps,
-      impact: {
-        co2SavedKg,
-        energySavedKwh,
-        waterSavedLiters,
-        decompositionYears,
-      },
-      upcyclingIdeas,
-      localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
-      aiNotes: 'Analyzed via EcoSort AI Vision Engine v2.4. Material signature identified with high spectral density match.',
-    };
+    const qLower = query.toLowerCase();
+
+    // Check for explicit non-waste or irrelevant keywords
+    const nonWasteKeywords = [
+      'person', 'human', 'man', 'woman', 'face', 'selfie', 'portrait', 'child',
+      'dog', 'cat', 'animal', 'pet', 'bird', 'car', 'truck', 'vehicle', 'bicycle',
+      'landscape', 'mountain', 'tree', 'sunset', 'sky', 'building', 'house', 'room',
+      'screenshot', 'code', 'document', 'pdf', 'meme', 'blank', 'unclear'
+    ];
+
+    if (nonWasteKeywords.some((kw) => qLower.includes(kw))) {
+      return null;
+    }
+
+    if (qLower.includes('circuit') || qLower.includes('battery') || qLower.includes('phone') || qLower.includes('e-waste') || qLower.includes('laptop') || qLower.includes('lithium')) {
+      return {
+        id: 'scan-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        isValidWaste: true,
+        datasetClass: 'battery',
+        itemName: 'Electronic Circuit / Battery Module',
+        brandOrModel: 'E-Waste Specimen',
+        category: 'E-Waste & Electronics',
+        primaryBin: 'Red Bin (E-Waste / Hazardous)',
+        binColor: '#dc2626',
+        confidence: 94,
+        recyclabilityScore: 85,
+        contaminationRisk: 'High',
+        composition: [
+          { material: 'Fiberglass & Copper', percentage: 60 },
+          { material: 'Lithium / Cobalt Elements', percentage: 25 },
+          { material: 'Solder Alloys', percentage: 15 },
+        ],
+        segregationSteps: [
+          'Tape contact terminals with clear electrical insulation tape',
+          'Do NOT place in standard municipal curbside recycling or garbage',
+          'Drop off at an authorized EcoSort E-Waste Collection Hub',
+        ],
+        impact: {
+          co2SavedKg: 1.45,
+          energySavedKwh: 4.2,
+          waterSavedLiters: 18.0,
+          decompositionYears: 1000,
+        },
+        upcyclingIdeas: [
+          'Extract high-purity rare earth minerals through certified metallurgy',
+          'Repurpose functional microchips for secondary DIY IoT projects',
+        ],
+        localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
+        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Heavy metals and lithium-ion cells require designated collection.',
+      };
+    } else if (qLower.includes('peel') || qLower.includes('banana') || qLower.includes('food') || qLower.includes('apple') || qLower.includes('compost') || qLower.includes('organic') || qLower.includes('biological')) {
+      return {
+        id: 'scan-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        isValidWaste: true,
+        datasetClass: 'biological',
+        itemName: 'Organic Food Residuals',
+        brandOrModel: 'Compostable Waste',
+        category: 'Compostable & Organic',
+        primaryBin: 'Green Bin (Compost/Organics)',
+        binColor: '#16a34a',
+        confidence: 96,
+        recyclabilityScore: 100,
+        contaminationRisk: 'Low',
+        composition: [
+          { material: 'Organic Cellulose & Water', percentage: 92 },
+          { material: 'Natural Minerals', percentage: 8 },
+        ],
+        segregationSteps: [
+          'Remove any non-compostable produce stickers or plastic ties',
+          'Place directly into brown paper bag or unlined green compost caddy',
+          'Deposit into green municipal organics bin',
+        ],
+        impact: {
+          co2SavedKg: 0.42,
+          energySavedKwh: 0.12,
+          waterSavedLiters: 0.8,
+          decompositionYears: 0.1,
+        },
+        upcyclingIdeas: [
+          'Incorporate into home vermicomposting bin for nutrient-rich soil humus',
+          'Steep banana peels in water to create potassium-rich organic fertilizer',
+        ],
+        localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
+        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Biodegradable biological waste verified.',
+      };
+    } else if (qLower.includes('box') || qLower.includes('cardboard') || qLower.includes('packaging')) {
+      return {
+        id: 'scan-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        isValidWaste: true,
+        datasetClass: 'cardboard',
+        itemName: 'Corrugated Packaging Material',
+        brandOrModel: 'Cardboard Box',
+        category: 'Paper & Cardboard',
+        primaryBin: 'Yellow Bin (Paper/Cardboard)',
+        binColor: '#eab308',
+        confidence: 95,
+        recyclabilityScore: 96,
+        contaminationRisk: 'Low',
+        composition: [
+          { material: 'Unbleached Kraft Pulp', percentage: 98 },
+          { material: 'Adhesive Starch', percentage: 2 },
+        ],
+        segregationSteps: [
+          'Remove synthetic packing tape and plastic shipping pouches',
+          'Flatten box completely flat to maximize container capacity',
+          'Keep dry; do not mix grease-stained pizza boxes with clean cardboard',
+        ],
+        impact: {
+          co2SavedKg: 0.32,
+          energySavedKwh: 0.85,
+          waterSavedLiters: 7.5,
+          decompositionYears: 0.25,
+        },
+        upcyclingIdeas: [
+          'Use as weed-suppressing sheet mulch under garden beds',
+          'Reuse as protective floor lining during painting or DIY maintenance',
+        ],
+        localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
+        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Clean cellulose fiber recyclable up to 7 times.',
+      };
+    } else if (qLower.includes('can') || qLower.includes('aluminum') || qLower.includes('metal') || qLower.includes('tin')) {
+      return {
+        id: 'scan-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        isValidWaste: true,
+        datasetClass: 'metal',
+        itemName: 'Aluminum Pop-Top Beverage Can',
+        brandOrModel: 'Beverage Container',
+        category: 'Metal & Aluminum',
+        primaryBin: 'Blue Bin (Recycling)',
+        binColor: '#2563eb',
+        confidence: 97,
+        recyclabilityScore: 100,
+        contaminationRisk: 'Low',
+        composition: [
+          { material: 'Aluminum Alloy 3004', percentage: 98 },
+          { material: 'Protective Internal Lacquer', percentage: 2 },
+        ],
+        segregationSteps: [
+          'Empty remaining beverage residues into sink',
+          'Rinse lightly with clean water',
+          'Leave pull tab attached to body and place in blue bin',
+        ],
+        impact: {
+          co2SavedKg: 0.21,
+          energySavedKwh: 0.72,
+          waterSavedLiters: 2.1,
+          decompositionYears: 200,
+        },
+        upcyclingIdeas: [
+          'Convert into small desktop pencil caddy or plant propagation container',
+          'Melt in high-temperature metal foundry for infinite secondary manufacturing',
+        ],
+        localDisposalNotice: 'Compliant with ISO 14001 environmental standards. Infinitely recyclable metal alloy.',
+        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Clean aluminum signature detected.',
+      };
+    } else if (qLower.includes('plastic') || qLower.includes('bottle') || qLower.includes('container') || qLower.includes('pet')) {
+      return {
+        id: 'scan-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        isValidWaste: true,
+        datasetClass: 'plastic',
+        itemName: 'Polyethylene Packaging / Bottle',
+        brandOrModel: 'PET Plastic Item',
+        category: 'Recyclable Plastics',
+        primaryBin: 'Blue Bin (Recycling)',
+        binColor: '#2563eb',
+        confidence: 93,
+        recyclabilityScore: 92,
+        contaminationRisk: 'Low',
+        composition: [
+          { material: 'PET Plastic (#1)', percentage: 95 },
+          { material: 'PP Plastic Lid (#5)', percentage: 5 },
+        ],
+        segregationSteps: [
+          'Empty any liquid or residue contents into sink',
+          'Rinse lightly with cold water to avoid mold formation',
+          'Keep cap securely attached or crush bottle prior to binning',
+        ],
+        impact: {
+          co2SavedKg: 0.18,
+          energySavedKwh: 0.35,
+          waterSavedLiters: 1.4,
+          decompositionYears: 450,
+        },
+        upcyclingIdeas: [
+          'Repurpose as a drip irrigation funnel for potted plants',
+          'Transform into organized storage for small hardware or craft items',
+        ],
+        localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
+        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Standard PET polymer detected with high recyclability score.',
+      };
+    }
+
+    return null;
   }
 
   // Vite middleware setup for Development & Express static for Production
