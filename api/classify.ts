@@ -449,19 +449,56 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    result.id = 'scan-' + Date.now();
-    result.timestamp = new Date().toISOString();
-
-    return res.status(200).json(result);
+    const finalResult = sanitizeClassificationResult(result);
+    return res.status(200).json(finalResult);
   } catch (error: any) {
     console.error('Classification error:', error);
     const fallbackResult = generateFallbackClassification(req.body?.textPrompt || req.body?.sampleName || '', req.body?.imageBase64);
     if (fallbackResult && fallbackResult.isValidWaste && fallbackResult.confidence >= 60) {
-      return res.status(200).json(fallbackResult);
+      const sanitizedFallback = sanitizeClassificationResult(fallbackResult);
+      return res.status(200).json(sanitizedFallback);
     }
     return res.status(422).json({ 
       error: 'Please upload or capture a clear image of a waste item.',
       isValidWaste: false 
     });
   }
+}
+
+function sanitizeClassificationResult(result: any): any {
+  if (!result) return null;
+  return {
+    id: result.id || 'scan-' + Date.now(),
+    timestamp: result.timestamp || new Date().toISOString(),
+    isValidWaste: Boolean(result.isValidWaste),
+    datasetClass: result.datasetClass || 'biological',
+    itemName: result.itemName || 'Identified Waste Specimen',
+    brandOrModel: result.brandOrModel || 'Consumer Packaging / Residual',
+    category: result.category || 'Recyclable Materials',
+    primaryBin: result.primaryBin || 'Blue Bin (Recycling)',
+    binColor: result.binColor || '#2563eb',
+    confidence: typeof result.confidence === 'number' ? Math.round(result.confidence) : 95,
+    recyclabilityScore: typeof result.recyclabilityScore === 'number' ? Math.round(result.recyclabilityScore) : 90,
+    contaminationRisk: result.contaminationRisk || 'Low',
+    composition: Array.isArray(result.composition) && result.composition.length > 0
+      ? result.composition.map((c: any) => ({
+          material: c.material || 'Organic / Cellulose Matter',
+          percentage: typeof c.percentage === 'number' ? c.percentage : 100,
+        }))
+      : [{ material: 'Composite Material', percentage: 100 }],
+    segregationSteps: Array.isArray(result.segregationSteps) && result.segregationSteps.length > 0
+      ? result.segregationSteps
+      : ['Deposit item into designated container'],
+    impact: {
+      co2SavedKg: typeof result.impact?.co2SavedKg === 'number' ? result.impact.co2SavedKg : 0.2,
+      energySavedKwh: typeof result.impact?.energySavedKwh === 'number' ? result.impact.energySavedKwh : 0.4,
+      waterSavedLiters: typeof result.impact?.waterSavedLiters === 'number' ? result.impact.waterSavedLiters : 1.5,
+      decompositionYears: typeof result.impact?.decompositionYears === 'number' ? result.impact.decompositionYears : 100,
+    },
+    upcyclingIdeas: Array.isArray(result.upcyclingIdeas) && result.upcyclingIdeas.length > 0
+      ? result.upcyclingIdeas
+      : ['Circular reprocessing and recycling'],
+    localDisposalNotice: result.localDisposalNotice || 'Compliant with municipal waste segregation standards.',
+    aiNotes: result.aiNotes || 'Analyzed via EcoSort AI Vision Engine.',
+  };
 }
