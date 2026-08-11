@@ -66,46 +66,39 @@ async function startServer() {
       }
 
       const systemInstruction = `
-You are EcoSort AI Waste Intelligence & Validation Engine.
-Your primary task is to perform a strict two-stage analysis on the provided image or description:
+You are EcoSort AI Waste Intelligence & Sorting Engine.
+Your role is to analyze the provided image or description of a consumer, household, or industrial item and provide an accurate waste segregation and classification report.
 
-STAGE 1: WASTE-RELEVANCE VALIDATION (MANDATORY GATEKEEPER)
-Determine if the provided image or text clearly depicts a valid recyclable, compostable, reusable, or disposable waste item, garbage, debris, scrap, discarded packaging, container, or unwanted item intended for disposal or recycling.
+VALID WASTE & RECYCLABLE ITEMS (isValidWaste = true):
+Accept ALL recyclable, compostable, reusable, or disposable consumer/household/industrial items, packaging, containers, and materials corresponding to the 12 garbage/waste dataset classes:
+1. 'plastic' -> Plastic drinking bottles, water bottles, milk jugs, detergent containers, plastic cups, tubs, wrappers, plastic packaging. (Category: 'Recyclable Plastics', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
+2. 'metal' -> Aluminum pop-top beverage cans, tin food cans, aerosol cans, clean foil, scrap metal. (Category: 'Metal & Aluminum', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
+3. 'cardboard' -> Corrugated boxes, packaging cartons, shipping boxes, cardboard sheets. (Category: 'Paper & Cardboard', Primary Bin: 'Yellow Bin (Paper/Cardboard)', Bin Color: '#eab308')
+4. 'paper' -> Office paper, newspapers, magazines, mail, envelopes, paper bags, egg cartons. (Category: 'Paper & Cardboard', Primary Bin: 'Yellow Bin (Paper/Cardboard)', Bin Color: '#eab308')
+5. 'biological' -> Food scraps, fruit peels (banana, citrus), apple cores, vegetable trimmings, coffee grounds, eggshells, organics. (Category: 'Compostable & Organic', Primary Bin: 'Green Bin (Compost/Organics)', Bin Color: '#16a34a')
+6. 'brown-glass' -> Amber and brown glass beverage/beer bottles, brown jars. (Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
+7. 'green-glass' -> Green glass wine bottles, soda bottles, green jars. (Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
+8. 'white-glass' -> Clear, transparent, or white glass bottles, jars, glassware. (Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
+9. 'battery' -> Household alkaline batteries, lithium-ion cells, electronic circuits, wires, e-waste. (Category: 'E-Waste & Electronics', Primary Bin: 'Red Bin (E-Waste / Hazardous)', Bin Color: '#dc2626')
+10. 'clothes' -> Fabric garments, shirts, trousers, textile scraps. (Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563')
+11. 'shoes' -> Footwear, sneakers, sandals, boots. (Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563')
+12. 'trash' -> Mixed municipal solid waste, non-recyclable composite wrappers, general refuse. (Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563')
 
-You MUST REJECT and set isValidWaste = false if the input depicts or contains:
-- A human, person, face, body part, hand, portrait, or selfie
-- A live animal, bird, fish, reptile, insect, or household pet
-- A vehicle in use (car, truck, airplane, boat, motorcycle, bicycle)
-- A scenic landscape, natural vista, mountain, forest, sunset, sky, room interior, or scenery (without discarded waste in primary focus)
-- A building, house, office, architecture, or furniture in active use
-- A screenshot, digital UI, software code, text document, book page, document, paper note, invoice, meme, or graphic design
-- A completely blank, pitch-black, washed-out, unrecognizable, blurry, or corrupted image
-- An active valuable device/object not being discarded or classified as waste material
+Note: Legitimate items can appear in varied conditions (clean, crushed, crumpled, empty, on a table, in a hand, on a floor, against white or indoor background, or in a bin). As long as the item belongs to any of these 12 classes, set isValidWaste = true.
 
-If isValidWaste is false:
-- Set isValidWaste = false
-- Set confidence = 0
-- Set rejectionReason = "Non-waste or unclear image detected"
-- Do NOT force the item into any waste category.
+REJECT ONLY CLEARLY UNRELATED / NON-WASTE SUBJECTS (isValidWaste = false):
+Reject strictly if the primary subject of the image is:
+- A human face, selfie, portrait, or live person (without a waste item in hand)
+- A live animal, household pet (dog, cat, bird), or wildlife
+- An active automobile, vehicle, or airplane
+- A scenic landscape, natural vista, mountain, forest, sunset, or sky (without any waste item in focus)
+- A building, house, office, or room interior (without any waste item in focus)
+- A software screenshot, IDE code, digital meme, text document, PDF, or spreadsheet
+- A completely blank, pitch-black, washed-out, or severely corrupted/unrecognizable image
 
-STAGE 2: WASTE CLASSIFICATION (Only when isValidWaste is true)
-Classify the waste item into one of the 12 verified dataset classes:
-1. 'battery' -> Category: 'E-Waste & Electronics', Primary Bin: 'Red Bin (E-Waste / Hazardous)', Bin Color: '#dc2626'
-2. 'biological' -> Category: 'Compostable & Organic', Primary Bin: 'Green Bin (Compost/Organics)', Bin Color: '#16a34a'
-3. 'brown-glass' -> Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
-4. 'cardboard' -> Category: 'Paper & Cardboard', Primary Bin: 'Yellow Bin (Paper/Cardboard)', Bin Color: '#eab308'
-5. 'clothes' -> Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563'
-6. 'green-glass' -> Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
-7. 'metal' -> Category: 'Metal & Aluminum', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
-8. 'paper' -> Category: 'Paper & Cardboard', Primary Bin: 'Yellow Bin (Paper/Cardboard)', Bin Color: '#eab308'
-9. 'plastic' -> Category: 'Recyclable Plastics', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
-10. 'shoes' -> Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563'
-11. 'trash' -> Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563'
-12. 'white-glass' -> Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb'
-
-CONFIDENCE SCORING:
-Assign a confidence rating from 0 to 100.
-If the confidence score is strictly less than 60%, or if you are not confident the image is a waste item, you MUST set isValidWaste = false.
+When isValidWaste is true:
+- Set datasetClass to one of the 12 classes above.
+- Assign appropriate confidence (0-100), recyclabilityScore (0-100), contaminationRisk ('Low' | 'Medium' | 'High'), composition, segregationSteps, impact metrics, upcyclingIdeas, and localDisposalNotice.
 `;
 
       const contentsParts: any[] = [];
@@ -135,9 +128,9 @@ If the confidence score is strictly less than 60%, or if you are not confident t
         });
       }
 
-      const promptText = textPrompt || sampleName || 'Analyze this image and verify if it is a valid waste item, then classify it.';
+      const promptText = textPrompt || sampleName || 'Classify and verify this waste/recyclable item. Identify its material, dataset class, and disposal bin.';
       contentsParts.push({
-        text: `Validate waste relevance and classify: ${promptText}. Provide structured JSON according to schema.`,
+        text: `Analyze item: ${promptText}. Verify waste relevance and return structured JSON report according to schema.`,
       });
 
       const response = await ai.models.generateContent({
@@ -151,11 +144,11 @@ If the confidence score is strictly less than 60%, or if you are not confident t
             properties: {
               isValidWaste: { 
                 type: Type.BOOLEAN, 
-                description: 'True ONLY if the input clearly depicts a valid waste item, garbage, or recyclable material. False for people, animals, vehicles, landscapes, screenshots, or non-waste.' 
+                description: 'True for any valid recyclable, compostable, reusable, or disposable waste item/container. False for people, animals, vehicles, landscapes, screenshots, or non-waste.' 
               },
               rejectionReason: { 
                 type: Type.STRING, 
-                description: 'Reason for rejection if isValidWaste is false (e.g., person, landscape, screenshot, unclear image)' 
+                description: 'Reason for rejection if isValidWaste is false (e.g. person, pet, vehicle, landscape, screenshot, unclear image)' 
               },
               datasetClass: { 
                 type: Type.STRING, 
@@ -439,41 +432,41 @@ If the confidence score is strictly less than 60%, or if you are not confident t
         aiNotes: 'Analyzed via EcoSort AI Vision Engine. Standard PET polymer detected with high recyclability score.',
       };
     } else if (imageBase64 && imageBase64.length > 100) {
-      // If a valid image is provided in keyless dev mode without text, classify as verified waste item
+      // Default to standard recyclable plastics/container when valid image is provided without text
       return {
         id: 'scan-' + Date.now(),
         timestamp: new Date().toISOString(),
         isValidWaste: true,
-        datasetClass: 'biological',
-        itemName: 'Organic Compostable Residuals / Fruit Matter',
-        brandOrModel: 'Biodegradable Waste',
-        category: 'Compostable & Organic',
-        primaryBin: 'Green Bin (Compost/Organics)',
-        binColor: '#16a34a',
-        confidence: 96,
-        recyclabilityScore: 100,
+        datasetClass: 'plastic',
+        itemName: 'Plastic Beverage Bottle / Container',
+        brandOrModel: 'PET (#1) Recyclable Polymer',
+        category: 'Recyclable Plastics',
+        primaryBin: 'Blue Bin (Recycling)',
+        binColor: '#2563eb',
+        confidence: 95,
+        recyclabilityScore: 92,
         contaminationRisk: 'Low',
         composition: [
-          { material: 'Organic Cellulose & Plant Fibers', percentage: 94 },
-          { material: 'Natural Minerals & Moisture', percentage: 6 },
+          { material: 'Polyethylene Terephthalate (PET #1)', percentage: 94 },
+          { material: 'Polypropylene Closure (PP #5)', percentage: 6 },
         ],
         segregationSteps: [
-          'Remove any non-compostable packaging or produce stickers',
-          'Place directly into brown compost bag or unlined green bin',
-          'Transfer to municipal organic waste collection',
+          'Empty any leftover liquids completely into sink',
+          'Rinse lightly with clean water',
+          'Compress or crush bottle to maximize bin volume and deposit in blue recycling bin',
         ],
         impact: {
-          co2SavedKg: 0.42,
-          energySavedKwh: 0.12,
-          waterSavedLiters: 0.8,
-          decompositionYears: 0.1,
+          co2SavedKg: 0.19,
+          energySavedKwh: 0.38,
+          waterSavedLiters: 1.5,
+          decompositionYears: 450,
         },
         upcyclingIdeas: [
-          'Incorporate into composting system to create nutrient-dense soil amendment',
-          'Steep organic peels in water for potassium-rich plant fertilizer',
+          'Repurpose as an automated slow-drip watering funnel for houseplants',
+          'Convert into modular organization caddies for small screws or stationery',
         ],
-        localDisposalNotice: 'Compliant with ISO 14001 environmental standards. Suitable for municipal compost.',
-        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Biodegradable biological waste verified.',
+        localDisposalNotice: 'Compliant with ISO 14001 municipal recycling protocols for curbside PET collection.',
+        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Clear thermoplastic polymer signature confirmed.',
       };
     }
 
