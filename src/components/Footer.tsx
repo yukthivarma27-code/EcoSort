@@ -1,5 +1,5 @@
 import React from 'react';
-import { Leaf, Shield, FileText, Mail, Github, Linkedin, ExternalLink } from 'lucide-react';
+import { Leaf, Shield, FileText, Mail, Github } from 'lucide-react';
 
 interface FooterProps {
   onOpenPrivacy: () => void;
@@ -36,16 +36,6 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms, onOp
                 title="GitHub Repository"
               >
                 <Github className="w-4 h-4" />
-              </a>
-              <a
-                href="https://linkedin.com"
-                target="_blank"
-                rel="noreferrer"
-                id="link-linkedin"
-                className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:border-slate-700 transition-colors"
-                title="LinkedIn Profile"
-              >
-                <Linkedin className="w-4 h-4" />
               </a>
             </div>
           </div>
