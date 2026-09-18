@@ -105,12 +105,12 @@ export const LegalModals: React.FC<LegalModalsProps> = ({ activeModal, onClose }
 
               <h4 className="font-bold text-white text-sm">2. Classification Accuracy Disclaimer</h4>
               <p>
-                While our neural vision models maintain &gt;98.5% benchmark precision, local disposal policies and municipal guidelines vary. Users should verify specialized hazardous material routing (e.g. chemical waste, lithium-ion battery banks) with regional waste authorities.
+                While our neural vision models are trained to classify items with high precision, local disposal policies and municipal guidelines vary significantly across jurisdictions. Users should always verify specialized hazardous material routing (e.g. chemical waste, lithium-ion batteries) with regional waste authorities.
               </p>
 
               <h4 className="font-bold text-white text-sm">3. Service Level Agreements (SLA)</h4>
               <p>
-                Enterprise subscribers are guaranteed 99.9% API uptime with sub-400ms global inference latency.
+                Enterprise subscribers are provided reliable API uptime with high-performance real-time visual inference.
               </p>
             </div>
           )}

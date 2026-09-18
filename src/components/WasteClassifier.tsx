@@ -22,7 +22,6 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
   const [scanProgress, setScanProgress] = useState<number>(0);
   const [currentResult, setCurrentResult] = useState<ClassificationResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
   // Camera capture state
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
@@ -78,16 +77,17 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setErrorMessage('Please upload or capture a clear image of a waste item.');
+      setErrorMessage('Please upload or capture a clear image of an item.');
       return;
     }
 
     if (file.size === 0 || file.size > 30 * 1024 * 1024) {
-      setErrorMessage('Please upload or capture a clear image of a waste item.');
+      setErrorMessage('Please upload or capture a clear image under 30MB.');
       return;
     }
 
     setErrorMessage(null);
+
     const reader = new FileReader();
     reader.onload = () => {
       const rawDataUrl = reader.result as string;
@@ -140,7 +140,7 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
   // Execute Classification Call
   const runClassification = async () => {
     if (!selectedImage && !textQuery.trim()) {
-      setErrorMessage('Please upload or capture a clear image of a waste item.');
+      setErrorMessage('Please upload or capture an image of an item to classify.');
       return;
     }
 
@@ -166,8 +166,12 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
       if (selectedImage) {
         body.imageBase64 = selectedImage;
       }
-      if (textQuery) {
-        body.textPrompt = textQuery;
+      if (textQuery.trim()) {
+        body.textPrompt = textQuery.trim();
+      }
+      if (selectedPresetId) {
+        const p = PRESET_SAMPLES.find((x) => x.id === selectedPresetId);
+        if (p) body.sampleName = p.title;
       }
 
       const res = await fetch('/api/classify', {
@@ -181,8 +185,8 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
 
       const responseData = await res.json().catch(() => null);
 
-      if (!res.ok || !responseData || responseData.isValidWaste === false || responseData.error) {
-        const message = responseData?.error || 'Please upload or capture a clear image of a waste item.';
+      if (!res.ok || !responseData || responseData.error) {
+        const message = responseData?.error || 'Unable to classify image. Please upload a clear photo.';
         setIsScanning(false);
         setCurrentResult(null);
         setErrorMessage(message);
@@ -198,13 +202,13 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
         setIsScanning(false);
         setCurrentResult(data);
         onScanComplete(data);
-      }, 300);
+      }, 200);
     } catch (err: any) {
       clearInterval(interval);
       setIsScanning(false);
       setCurrentResult(null);
       console.error('Scan error:', err);
-      setErrorMessage('Please upload or capture a clear image of a waste item.');
+      setErrorMessage('Network or server error while analyzing image. Please try again.');
     }
   };
 
@@ -293,21 +297,21 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
           </h1>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Upload or capture waste items to receive instant neural classification, material composition diagnostics, precise bin routing, and verified carbon accounting.
+            Upload or capture waste items to receive neural classification, material composition diagnostics, bin routing, and estimated environmental impact.
           </p>
 
           <div className="pt-2 flex flex-wrap justify-center gap-6 text-xs text-slate-400 font-mono">
             <div className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>&gt;98.5% Categorization Accuracy</span>
+              <span>Multimodal Vision AI</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Zap className="w-4 h-4 text-amber-400" />
-              <span>&lt;400ms Neural Inference</span>
+              <span>Real-Time Inference</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Recycle className="w-4 h-4 text-teal-400" />
-              <span>ISO 14001 Compliant</span>
+              <span>Standardized Streams</span>
             </div>
           </div>
         </div>
@@ -667,6 +671,13 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                     <p className="text-xs text-slate-400">
                       Category: <span className="text-slate-200 font-medium">{currentResult.category}</span>
                     </p>
+
+                    {currentResult.visibleObjectDescription && (
+                      <div className="mt-2 text-xs bg-slate-950/60 p-2 rounded-lg border border-slate-800 text-slate-300">
+                        <span className="text-[10px] text-slate-500 uppercase font-mono block">Detected Subject</span>
+                        <span>{currentResult.visibleObjectDescription}</span>
+                      </div>
+                    )}
                   </div>
 
                   <button
@@ -677,6 +688,21 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                     <Download className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Non-Waste or Unidentified Alerts */}
+                {currentResult.isWasteItem === false && currentResult.isIdentifiable && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Identified as a non-waste entity. This subject is not suitable for municipal waste or recycling containers.</span>
+                  </div>
+                )}
+
+                {currentResult.isIdentifiable === false && (
+                  <div className="p-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-300 text-xs flex items-center gap-2">
+                    <Info className="w-4 h-4 shrink-0" />
+                    <span>Subject could not be recognized with sufficient certainty. Please take a clear, well-lit photo of the item on a plain background.</span>
+                  </div>
+                )}
 
                 {/* Primary Container Badge */}
                 <div 
@@ -704,6 +730,12 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                   <p className="text-xs text-slate-300 leading-snug">
                     {currentResult.localDisposalNotice}
                   </p>
+
+                  {currentResult.localGuidanceDisclaimer && (
+                    <p className="text-[10px] text-slate-400 italic pt-1.5 border-t border-slate-800/80">
+                      * {currentResult.localGuidanceDisclaimer}
+                    </p>
+                  )}
                 </div>
 
                 {/* Material Composition */}

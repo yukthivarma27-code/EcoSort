@@ -1,6 +1,15 @@
 export type WasteCategory = 
-  | 'Recyclable Plastics'
+  | 'Organic/Compostable'
+  | 'Recyclable Plastic'
+  | 'Paper/Cardboard'
+  | 'Glass'
+  | 'Metal'
+  | 'E-waste'
+  | 'Hazardous'
+  | 'General/Residual'
+  | 'Unknown'
   | 'Paper & Cardboard'
+  | 'Recyclable Plastics'
   | 'Compostable & Organic'
   | 'E-Waste & Electronics'
   | 'Glass & Glassware'
@@ -9,6 +18,15 @@ export type WasteCategory =
   | 'Non-Recyclable Landfill';
 
 export type BinType = 
+  | 'Compost / Organics Bin'
+  | 'Plastic Recycling Bin'
+  | 'Paper / Cardboard Bin'
+  | 'Glass Recycling Bin'
+  | 'Metal Recycling Bin'
+  | 'E-Waste Drop-off'
+  | 'Hazardous Waste Facility'
+  | 'General Waste / Landfill'
+  | 'Special / Local Collection'
   | 'Blue Bin (Recycling)'
   | 'Yellow Bin (Paper/Cardboard)'
   | 'Green Bin (Compost/Organics)'
@@ -31,11 +49,14 @@ export interface ClassificationResult {
   id: string;
   timestamp: string;
   itemName: string;
+  visibleObjectDescription?: string;
+  isWasteItem?: boolean;
+  isIdentifiable?: boolean;
   brandOrModel?: string;
   category: WasteCategory;
   primaryBin: BinType;
   binColor: string; // hex or tailwind class
-  confidence: number; // 0-100
+  confidence: number; // 0-100 (real model inference confidence)
   recyclabilityScore: number; // 0-100
   contaminationRisk: 'Low' | 'Medium' | 'High';
   composition: MaterialComposition[];
@@ -43,6 +64,7 @@ export interface ClassificationResult {
   impact: EnvironmentalImpact;
   upcyclingIdeas: string[];
   localDisposalNotice: string;
+  localGuidanceDisclaimer?: string;
   imageUrl?: string;
   aiNotes?: string;
 }

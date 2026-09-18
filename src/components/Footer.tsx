@@ -56,7 +56,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms, onOp
                 Municipal Contamination Analytics
               </li>
               <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
-                ISO 14001 ESG Reporting API
+                Environmental Impact Reporting API
               </li>
               <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
                 Circular Economy Material Auditing
@@ -110,7 +110,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms, onOp
               System Infrastructure
             </div>
             <p className="text-[11px] text-slate-400 leading-normal">
-              EcoSort AI vision architecture runs on SOC-2 compliant serverless cloud nodes. High-throughput neural processing ensures &lt;400ms inference times.
+              EcoSort AI vision architecture utilizes high-performance multimodal neural processing for real-time item classification.
             </p>
             <div className="pt-1 text-[11px] font-mono text-emerald-400 flex items-center gap-1">
               <span>Status: All Systems Operational</span>

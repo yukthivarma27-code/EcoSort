@@ -128,7 +128,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Real-time material diversion telemetry, carbon footprint accounting, and ISO 14001 compliance logs.
+            Real-time material diversion telemetry, carbon footprint accounting, and environmental diversion audit logs.
           </p>
         </div>
 

@@ -42,11 +42,11 @@ async function startServer() {
   // API Route: Waste AI Classification
   app.post('/api/classify', async (req, res) => {
     try {
-      const { imageBase64, textPrompt, sampleName } = req.body;
+      const { imageBase64, textPrompt, sampleName } = req.body || {};
 
       if (!imageBase64 && !textPrompt && !sampleName) {
         return res.status(422).json({ 
-          error: 'Please upload or capture a clear image of a waste item.',
+          error: 'Please upload or capture an image of an item to classify.',
           isValidWaste: false 
         });
       }
@@ -54,51 +54,61 @@ async function startServer() {
       const ai = getAiClient();
 
       if (!ai) {
-        // Fallback intelligent classification generator if API key is not configured or during keyless dev
-        const fallbackResult = generateFallbackClassification(textPrompt || sampleName || '', imageBase64);
-        if (!fallbackResult || !fallbackResult.isValidWaste || fallbackResult.confidence < 60) {
-          return res.status(422).json({ 
-            error: 'Please upload or capture a clear image of a waste item.',
-            isValidWaste: false 
-          });
-        }
-        return res.json(fallbackResult);
+        return res.status(503).json({ 
+          error: 'AI Vision Engine is unavailable: Please configure a valid GEMINI_API_KEY in your .env file to enable live visual classification.',
+          isValidWaste: false,
+          isIdentifiable: false,
+          itemName: 'AI Engine Offline',
+          category: 'Unknown'
+        });
       }
 
       const systemInstruction = `
-You are EcoSort AI Waste Intelligence & Sorting Engine.
-Your role is to analyze the provided image or description of a consumer, household, or industrial item and provide an accurate waste segregation and classification report.
+You are an expert waste classification and circular materials intelligence model.
+Your task is to analyze the provided image with high precision, identify the visible object, and determine its proper waste management stream.
 
-VALID WASTE & RECYCLABLE ITEMS (isValidWaste = true):
-Accept ALL recyclable, compostable, reusable, or disposable consumer/household/industrial items, packaging, containers, and materials corresponding to the 12 garbage/waste dataset classes:
-1. 'plastic' -> Plastic drinking bottles, water bottles, milk jugs, detergent containers, plastic cups, tubs, wrappers, plastic packaging. (Category: 'Recyclable Plastics', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
-2. 'metal' -> Aluminum pop-top beverage cans, tin food cans, aerosol cans, clean foil, scrap metal. (Category: 'Metal & Aluminum', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
-3. 'cardboard' -> Corrugated boxes, packaging cartons, shipping boxes, cardboard sheets. (Category: 'Paper & Cardboard', Primary Bin: 'Yellow Bin (Paper/Cardboard)', Bin Color: '#eab308')
-4. 'paper' -> Office paper, newspapers, magazines, mail, envelopes, paper bags, egg cartons. (Category: 'Paper & Cardboard', Primary Bin: 'Yellow Bin (Paper/Cardboard)', Bin Color: '#eab308')
-5. 'biological' -> Food scraps, fruit peels (banana, citrus), apple cores, vegetable trimmings, coffee grounds, eggshells, organics. (Category: 'Compostable & Organic', Primary Bin: 'Green Bin (Compost/Organics)', Bin Color: '#16a34a')
-6. 'brown-glass' -> Amber and brown glass beverage/beer bottles, brown jars. (Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
-7. 'green-glass' -> Green glass wine bottles, soda bottles, green jars. (Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
-8. 'white-glass' -> Clear, transparent, or white glass bottles, jars, glassware. (Category: 'Glass & Glassware', Primary Bin: 'Blue Bin (Recycling)', Bin Color: '#2563eb')
-9. 'battery' -> Household alkaline batteries, lithium-ion cells, electronic circuits, wires, e-waste. (Category: 'E-Waste & Electronics', Primary Bin: 'Red Bin (E-Waste / Hazardous)', Bin Color: '#dc2626')
-10. 'clothes' -> Fabric garments, shirts, trousers, textile scraps. (Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563')
-11. 'shoes' -> Footwear, sneakers, sandals, boots. (Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563')
-12. 'trash' -> Mixed municipal solid waste, non-recyclable composite wrappers, general refuse. (Category: 'Non-Recyclable Landfill', Primary Bin: 'Gray Bin (General Landfill)', Bin Color: '#4b5563')
+CRITICAL INSTRUCTIONS:
+1. IDENTIFY THE VISIBLE OBJECT FIRST:
+   - Carefully examine what is physically shown in the image and provide a concise, factual description in 'visibleObjectDescription' (e.g., "several yellow banana peels on a surface", "transparent plastic drinking bottle with cap", "corrugated cardboard shipping box", "human face portrait / selfie", "living pet dog", "outdoor landscape").
 
-Note: Legitimate items can appear in varied conditions (clean, crushed, crumpled, empty, on a table, in a hand, on a floor, against white or indoor background, or in a bin). As long as the item belongs to any of these 12 classes, set isValidWaste = true.
+2. NON-WASTE ENTITY GATEKEEPING:
+   - If the main subject of the image is NOT an item of consumer, household, commercial, or industrial waste, recyclable packaging, food scrap, or scrap material (for example: a human portrait, selfie, living animal/pet, active automobile, natural scenic landscape, software IDE screenshot, meme, or document):
+     - Set 'isWasteItem' = false
+     - Set 'isIdentifiable' = true
+     - Set 'itemName' = "Not a waste item"
+     - Set 'category' = "Unknown"
+     - Explain why in 'rejectionReason' and 'aiNotes'.
 
-REJECT ONLY CLEARLY UNRELATED / NON-WASTE SUBJECTS (isValidWaste = false):
-Reject strictly if the primary subject of the image is:
-- A human face, selfie, portrait, or live person (without a waste item in hand)
-- A live animal, household pet (dog, cat, bird), or wildlife
-- An active automobile, vehicle, or airplane
-- A scenic landscape, natural vista, mountain, forest, sunset, or sky (without any waste item in focus)
-- A building, house, office, or room interior (without any waste item in focus)
-- A software screenshot, IDE code, digital meme, text document, PDF, or spreadsheet
-- A completely blank, pitch-black, washed-out, or severely corrupted/unrecognizable image
+3. UNCLEAR / UNRECOGNIZABLE IMAGE GATEKEEPING:
+   - If the image is pitch black, completely washed out, extremely blurry, severely corrupted, or impossible to determine:
+     - Set 'isWasteItem' = false
+     - Set 'isIdentifiable' = false
+     - Set 'itemName' = "Unknown / Cannot Determine"
+     - Set 'category' = "Unknown"
+     - Set 'confidence' = lower than 40.
+     - Never guess blindly.
 
-When isValidWaste is true:
-- Set datasetClass to one of the 12 classes above.
-- Assign appropriate confidence (0-100), recyclabilityScore (0-100), contaminationRisk ('Low' | 'Medium' | 'High'), composition, segregationSteps, impact metrics, upcyclingIdeas, and localDisposalNotice.
+4. REAL INFERENCE CONFIDENCE:
+   - 'confidence' MUST be your genuine calibrated inference certainty score between 0 and 100 based on image clarity and visual evidence. Do NOT use fake or static numbers.
+
+5. PRACTICAL CATEGORIES (Assign strictly one of these 9 categories):
+   - 'Organic/Compostable': Food scraps, fruit peels (banana peels, apple cores, citrus rinds), vegetable trimmings, coffee grounds, eggshells, garden leaves/yard waste.
+   - 'Recyclable Plastic': Rigid plastic bottles, jugs, tubs, and clean containers (PET #1, HDPE #2, PP #5).
+   - 'Paper/Cardboard': Corrugated shipping boxes, paperboard packaging, newspapers, magazines, clean office paper.
+   - 'Glass': Clear, amber, or green glass beverage bottles and jars.
+   - 'Metal': Aluminum soda cans, tin/steel food cans, clean aluminum foil, scrap metal.
+   - 'E-waste': Circuit boards, mobile phones, computers, cables, chargers, electronic gadgets.
+   - 'Hazardous': Batteries, paint, motor oil, harsh chemicals, aerosol cans with hazard symbols, fluorescent bulbs.
+   - 'General/Residual': Non-recyclable composite packaging, multilayer chip bags, dirty sanitary waste, general landfill refuse.
+   - 'Unknown': If unidentifiable or non-waste.
+
+6. MATCHING MATERIAL COMPOSITION & PREPARATION STEPS:
+   - Composition must reflect what the identified object is actually composed of. For example, a banana peel must have organic cellulose/plant fiber and moisture, NEVER plastic polymers (PET) or metals.
+   - Preparation steps must describe how to properly prepare that specific object (e.g., removing non-compostable produce stickers from fruit peels, rinsing bottles or cans).
+
+7. NO BLIND GUESSES OR MISMATCHES:
+   - Never classify fruit peels or food scraps as plastic bottles or containers.
+   - Object, Category, Composition, Bin recommendation, and Preparation steps MUST all describe the exact same item.
 `;
 
       const contentsParts: any[] = [];
@@ -112,10 +122,9 @@ When isValidWaste is true:
           pureBase64 = parts[1];
         }
 
-        // Validate base64 image integrity and size
         if (!pureBase64 || pureBase64.length < 50 || !mimeType.startsWith('image/')) {
           return res.status(422).json({ 
-            error: 'Please upload or capture a clear image of a waste item.',
+            error: 'Please upload or capture a clear, valid image file.',
             isValidWaste: false 
           });
         }
@@ -128,388 +137,374 @@ When isValidWaste is true:
         });
       }
 
-      const promptText = textPrompt || sampleName || 'Classify and verify this waste/recyclable item. Identify its material, dataset class, and disposal bin.';
-      contentsParts.push({
-        text: `Analyze item: ${promptText}. Verify waste relevance and return structured JSON report according to schema.`,
-      });
+      const promptContext = [
+        textPrompt,
+        sampleName,
+      ].filter(Boolean).join(' | ');
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-flash-latest',
-        contents: { parts: contentsParts },
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              isValidWaste: { 
-                type: Type.BOOLEAN, 
-                description: 'True for any valid recyclable, compostable, reusable, or disposable waste item/container. False for people, animals, vehicles, landscapes, screenshots, or non-waste.' 
-              },
-              rejectionReason: { 
-                type: Type.STRING, 
-                description: 'Reason for rejection if isValidWaste is false (e.g. person, pet, vehicle, landscape, screenshot, unclear image)' 
-              },
-              datasetClass: { 
-                type: Type.STRING, 
-                description: 'One of the 12 dataset classes: battery, biological, brown-glass, cardboard, clothes, green-glass, metal, paper, plastic, shoes, trash, white-glass' 
-              },
-              itemName: { type: Type.STRING, description: 'Specific title of identified waste item' },
-              brandOrModel: { type: Type.STRING, description: 'Optional brand, model, or material code if visible' },
-              category: { type: Type.STRING, description: 'Waste category name' },
-              primaryBin: { type: Type.STRING, description: 'Target segregation container' },
-              binColor: { type: Type.STRING, description: 'Hex color code corresponding to bin' },
-              confidence: { type: Type.NUMBER, description: 'AI confidence score from 0 to 100' },
-              recyclabilityScore: { type: Type.NUMBER, description: 'Recyclability feasibility rating from 0 to 100' },
-              contaminationRisk: { type: Type.STRING, description: 'Contamination risk level: Low, Medium, or High' },
-              composition: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    material: { type: Type.STRING },
-                    percentage: { type: Type.NUMBER },
-                  },
-                },
-              },
-              segregationSteps: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: 'Ordered sequence of actionable preparation steps',
-              },
-              impact: {
+      const promptText = promptContext 
+        ? `Analyze this item visually: ${promptContext}. Identify visible object, verify waste relevance, and return accurate structured JSON.`
+        : 'Analyze this image. Identify the visible object, determine if it is waste or non-waste, and return structured JSON classification.';
+
+      contentsParts.push({ text: promptText });
+
+      let response: any = null;
+      const candidateModels = [
+        'gemini-3.5-flash-lite',
+        'gemini-3.5-flash',
+        'gemini-3.6-flash',
+        'gemini-flash-latest',
+        'gemini-2.5-flash-lite'
+      ];
+      for (const modelName of candidateModels) {
+        try {
+          response = await ai.models.generateContent({
+            model: modelName,
+            contents: { parts: contentsParts },
+            config: {
+              systemInstruction,
+              responseMimeType: 'application/json',
+              responseSchema: {
                 type: Type.OBJECT,
                 properties: {
-                  co2SavedKg: { type: Type.NUMBER, description: 'Kilograms of CO2 emissions prevented by proper diversion' },
-                  energySavedKwh: { type: Type.NUMBER, description: 'Kilowatt-hours of energy conserved' },
-                  waterSavedLiters: { type: Type.NUMBER, description: 'Liters of freshwater preserved' },
-                  decompositionYears: { type: Type.NUMBER, description: 'Estimated years to decompose in landfill' },
+                  isWasteItem: { 
+                    type: Type.BOOLEAN, 
+                    description: 'True if this is a legitimate discarded consumer/household/industrial waste, recyclable, or compostable item. False for people, pets, vehicles, landscapes, screenshots, or non-waste.' 
+                  },
+                  isIdentifiable: {
+                    type: Type.BOOLEAN,
+                    description: 'True if the object in the image is clear enough to recognize. False if pitch black, washed out, or completely unidentifiable.'
+                  },
+                  visibleObjectDescription: {
+                    type: Type.STRING,
+                    description: 'Accurate description of what is visible in the image (e.g. banana peels, plastic bottle, cardboard box, human face, pet dog)'
+                  },
+                  rejectionReason: { 
+                    type: Type.STRING, 
+                    description: 'Explanation if isWasteItem or isIdentifiable is false' 
+                  },
+                  itemName: { 
+                    type: Type.STRING, 
+                    description: 'Specific name of identified object (e.g. Banana Peel, Plastic Water Bottle, Aluminum Can, Not a waste item, Unknown / Cannot Determine)' 
+                  },
+                  brandOrModel: { 
+                    type: Type.STRING, 
+                    description: 'Brand, model, or material code if visible' 
+                  },
+                  category: { 
+                    type: Type.STRING, 
+                    description: 'One of: Organic/Compostable, Recyclable Plastic, Paper/Cardboard, Glass, Metal, E-waste, Hazardous, General/Residual, Unknown' 
+                  },
+                  confidence: { 
+                    type: Type.NUMBER, 
+                    description: 'Actual model inference confidence score from 0 to 100 based on visual evidence' 
+                  },
+                  recyclabilityScore: { 
+                    type: Type.NUMBER, 
+                    description: 'Recyclability or compostability feasibility score from 0 to 100' 
+                  },
+                  contaminationRisk: { 
+                    type: Type.STRING, 
+                    description: 'Risk of contamination: Low, Medium, or High' 
+                  },
+                  composition: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        material: { type: Type.STRING },
+                        percentage: { type: Type.NUMBER },
+                      },
+                    },
+                  },
+                  segregationSteps: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                    description: 'Actionable steps matching the detected object',
+                  },
+                  impact: {
+                    type: Type.OBJECT,
+                    properties: {
+                      co2SavedKg: { type: Type.NUMBER },
+                      energySavedKwh: { type: Type.NUMBER },
+                      waterSavedLiters: { type: Type.NUMBER },
+                      decompositionYears: { type: Type.NUMBER },
+                    },
+                  },
+                  upcyclingIdeas: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                  },
+                  localDisposalNotice: { 
+                    type: Type.STRING,
+                    description: 'Disposal advice reflecting the item' 
+                  },
+                  aiNotes: { 
+                    type: Type.STRING,
+                    description: 'Technical visual observation notes detailing the object' 
+                  },
                 },
+                required: [
+                  'isWasteItem',
+                  'isIdentifiable',
+                  'visibleObjectDescription',
+                  'itemName',
+                  'category',
+                  'confidence',
+                ],
               },
-              upcyclingIdeas: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING },
-                description: 'Creative or industrial circular economy reuse ideas',
-              },
-              localDisposalNotice: { type: Type.STRING, description: 'Standard municipal advisory or warning statement' },
-              aiNotes: { type: Type.STRING, description: 'Computer vision observation notes detailing material highlights' },
             },
-            required: [
-              'isValidWaste',
-              'confidence',
-            ],
-          },
-        },
-      });
+          });
+          if (response && response.text) break;
+        } catch (mErr: any) {
+          console.warn(`Model ${modelName} attempt failed:`, mErr?.message || mErr);
+        }
+      }
 
-      const rawJson = response.text;
+      const rawJson = response?.text;
       if (!rawJson) {
-        throw new Error('Empty response from vision AI model.');
+        throw new Error('No valid response received from vision AI model.');
       }
 
-      const result = JSON.parse(rawJson);
+      const parsed = JSON.parse(rawJson);
+      const validatedResult = validateClassificationConsistency(parsed);
 
-      // Gatekeeper: Reject non-waste images and low-confidence predictions (<60%)
-      if (!result.isValidWaste || typeof result.confidence !== 'number' || result.confidence < 60) {
-        return res.status(422).json({ 
-          error: 'Please upload or capture a clear image of a waste item.',
-          isValidWaste: false,
-          rejectionReason: result.rejectionReason || 'Non-waste or ambiguous item'
-        });
-      }
-
-      const finalResult = sanitizeClassificationResult(result);
-      return res.json(finalResult);
+      return res.json(validatedResult);
     } catch (error: any) {
       console.error('Classification error:', error);
-      // If AI model encountered an error, fallback gracefully to the local classification engine
-      const fallbackResult = generateFallbackClassification(req.body?.textPrompt || req.body?.sampleName || '', req.body?.imageBase64);
-      if (fallbackResult && fallbackResult.isValidWaste && fallbackResult.confidence >= 60) {
-        const sanitizedFallback = sanitizeClassificationResult(fallbackResult);
-        return res.json(sanitizedFallback);
-      }
-      return res.status(422).json({ 
-        error: 'Please upload or capture a clear image of a waste item.',
-        isValidWaste: false 
+      const errMsg = error?.message || '';
+      const isAuthError = errMsg.includes('API key') || errMsg.includes('API_KEY_INVALID') || errMsg.includes('401') || errMsg.includes('403');
+      
+      return res.status(isAuthError ? 401 : 422).json({ 
+        error: isAuthError 
+          ? 'Invalid Gemini API key. Please configure a valid GEMINI_API_KEY in your .env file.'
+          : 'Unable to analyze image. Please upload a clear photo of an item.',
+        isValidWaste: false,
+        isIdentifiable: false,
+        itemName: 'Classification Error',
+        category: 'Unknown'
       });
     }
   });
 
-  function sanitizeClassificationResult(result: any): any {
-    if (!result) return null;
-    return {
-      id: result.id || 'scan-' + Date.now(),
-      timestamp: result.timestamp || new Date().toISOString(),
-      isValidWaste: Boolean(result.isValidWaste),
-      datasetClass: result.datasetClass || 'biological',
-      itemName: result.itemName || 'Identified Waste Specimen',
-      brandOrModel: result.brandOrModel || 'Consumer Packaging / Residual',
-      category: result.category || 'Recyclable Materials',
-      primaryBin: result.primaryBin || 'Blue Bin (Recycling)',
-      binColor: result.binColor || '#2563eb',
-      confidence: typeof result.confidence === 'number' ? Math.round(result.confidence) : 95,
-      recyclabilityScore: typeof result.recyclabilityScore === 'number' ? Math.round(result.recyclabilityScore) : 90,
-      contaminationRisk: result.contaminationRisk || 'Low',
-      composition: Array.isArray(result.composition) && result.composition.length > 0
-        ? result.composition.map((c: any) => ({
-            material: c.material || 'Organic / Cellulose Matter',
-            percentage: typeof c.percentage === 'number' ? c.percentage : 100,
-          }))
-        : [{ material: 'Composite Material', percentage: 100 }],
-      segregationSteps: Array.isArray(result.segregationSteps) && result.segregationSteps.length > 0
-        ? result.segregationSteps
-        : ['Deposit item into designated container'],
-      impact: {
-        co2SavedKg: typeof result.impact?.co2SavedKg === 'number' ? result.impact.co2SavedKg : 0.2,
-        energySavedKwh: typeof result.impact?.energySavedKwh === 'number' ? result.impact.energySavedKwh : 0.4,
-        waterSavedLiters: typeof result.impact?.waterSavedLiters === 'number' ? result.impact.waterSavedLiters : 1.5,
-        decompositionYears: typeof result.impact?.decompositionYears === 'number' ? result.impact.decompositionYears : 100,
-      },
-      upcyclingIdeas: Array.isArray(result.upcyclingIdeas) && result.upcyclingIdeas.length > 0
-        ? result.upcyclingIdeas
-        : ['Circular reprocessing and recycling'],
-      localDisposalNotice: result.localDisposalNotice || 'Compliant with municipal waste segregation standards.',
-      aiNotes: result.aiNotes || 'Analyzed via EcoSort AI Vision Engine.',
-    };
-  }
+  // Strict semantic consistency validator: Object <-> Category <-> Material <-> Bin <-> Preparation
+  function validateClassificationConsistency(data: any): any {
+    if (!data) return null;
 
-  // Fallback intelligent classification generator with strict waste validation
-  function generateFallbackClassification(query: string, imageBase64?: string): any {
-    const qLower = (query || '').toLowerCase().trim();
+    const rawConfidence = typeof data.confidence === 'number'
+      ? (data.confidence <= 1 && data.confidence > 0 ? data.confidence * 100 : data.confidence)
+      : 85;
+    const normalizedConfidence = Math.round(Math.min(100, Math.max(0, rawConfidence)));
 
-    // Check for explicit non-waste or irrelevant keywords
-    const nonWasteKeywords = [
-      'person', 'human', 'man', 'woman', 'face', 'selfie', 'portrait', 'child',
-      'dog', 'cat', 'animal', 'pet', 'bird', 'car', 'truck', 'vehicle', 'bicycle',
-      'landscape', 'mountain', 'tree', 'sunset', 'sky', 'building', 'house', 'room',
-      'screenshot', 'code', 'document', 'pdf', 'meme', 'blank', 'unclear'
-    ];
-
-    if (qLower && nonWasteKeywords.some((kw) => qLower.includes(kw))) {
-      return null;
-    }
-
-    if (qLower.includes('circuit') || qLower.includes('battery') || qLower.includes('phone') || qLower.includes('e-waste') || qLower.includes('laptop') || qLower.includes('lithium')) {
+    // 1. Unidentifiable / unclear image
+    if (data.isIdentifiable === false || (data.category === 'Unknown' && data.isWasteItem !== false) || normalizedConfidence < 45) {
       return {
         id: 'scan-' + Date.now(),
         timestamp: new Date().toISOString(),
-        isValidWaste: true,
-        datasetClass: 'battery',
-        itemName: 'Electronic Circuit / Battery Module',
-        brandOrModel: 'E-Waste Specimen',
-        category: 'E-Waste & Electronics',
-        primaryBin: 'Red Bin (E-Waste / Hazardous)',
-        binColor: '#dc2626',
-        confidence: 94,
-        recyclabilityScore: 85,
+        isWasteItem: false,
+        isIdentifiable: false,
+        visibleObjectDescription: data.visibleObjectDescription || 'Unclear visual input',
+        itemName: 'Unknown / Cannot Determine',
+        brandOrModel: 'Unclear Object',
+        category: 'Unknown',
+        primaryBin: 'Special / Local Collection',
+        binColor: '#64748b',
+        confidence: normalizedConfidence,
+        recyclabilityScore: 0,
         contaminationRisk: 'High',
-        composition: [
-          { material: 'Fiberglass & Copper', percentage: 60 },
-          { material: 'Lithium / Cobalt Elements', percentage: 25 },
-          { material: 'Solder Alloys', percentage: 15 },
-        ],
+        composition: [{ material: 'Unidentified Material', percentage: 100 }],
         segregationSteps: [
-          'Tape contact terminals with clear electrical insulation tape',
-          'Do NOT place in standard municipal curbside recycling or garbage',
-          'Drop off at an authorized EcoSort E-Waste Collection Hub',
+          'Upload or capture a clear, well-lit photo of the item on a plain background.',
+          'Verify item composition labels or markings before disposing.',
         ],
         impact: {
-          co2SavedKg: 1.45,
-          energySavedKwh: 4.2,
-          waterSavedLiters: 18.0,
-          decompositionYears: 1000,
+          co2SavedKg: 0,
+          energySavedKwh: 0,
+          waterSavedLiters: 0,
+          decompositionYears: 0,
         },
-        upcyclingIdeas: [
-          'Extract high-purity rare earth minerals through certified metallurgy',
-          'Repurpose functional microchips for secondary DIY IoT projects',
-        ],
-        localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
-        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Heavy metals and lithium-ion cells require designated collection.',
-      };
-    } else if (qLower.includes('peel') || qLower.includes('banana') || qLower.includes('food') || qLower.includes('apple') || qLower.includes('compost') || qLower.includes('organic') || qLower.includes('biological') || qLower.includes('fruit') || qLower.includes('vegetable')) {
-      return {
-        id: 'scan-' + Date.now(),
-        timestamp: new Date().toISOString(),
-        isValidWaste: true,
-        datasetClass: 'biological',
-        itemName: 'Organic Food Residuals / Fruit Peel',
-        brandOrModel: 'Biodegradable Compostable Matter',
-        category: 'Compostable & Organic',
-        primaryBin: 'Green Bin (Compost/Organics)',
-        binColor: '#16a34a',
-        confidence: 96,
-        recyclabilityScore: 100,
-        contaminationRisk: 'Low',
-        composition: [
-          { material: 'Organic Cellulose & Moisture', percentage: 92 },
-          { material: 'Natural Bio-Minerals (Potassium / Nitrogen)', percentage: 8 },
-        ],
-        segregationSteps: [
-          'Remove any non-compostable produce stickers or plastic ties',
-          'Place directly into brown paper bag or unlined green compost caddy',
-          'Deposit into green municipal organics bin',
-        ],
-        impact: {
-          co2SavedKg: 0.42,
-          energySavedKwh: 0.12,
-          waterSavedLiters: 0.8,
-          decompositionYears: 0.1,
-        },
-        upcyclingIdeas: [
-          'Incorporate into home vermicomposting bin for nutrient-rich soil humus',
-          'Steep fruit and banana peels in water to create potassium-rich organic fertilizer',
-        ],
-        localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
-        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Highly biodegradable biological organic matter verified.',
-      };
-    } else if (qLower.includes('box') || qLower.includes('cardboard') || qLower.includes('packaging')) {
-      return {
-        id: 'scan-' + Date.now(),
-        timestamp: new Date().toISOString(),
-        isValidWaste: true,
-        datasetClass: 'cardboard',
-        itemName: 'Corrugated Packaging Material',
-        brandOrModel: 'Cardboard Box',
-        category: 'Paper & Cardboard',
-        primaryBin: 'Yellow Bin (Paper/Cardboard)',
-        binColor: '#eab308',
-        confidence: 95,
-        recyclabilityScore: 96,
-        contaminationRisk: 'Low',
-        composition: [
-          { material: 'Unbleached Kraft Pulp', percentage: 98 },
-          { material: 'Adhesive Starch', percentage: 2 },
-        ],
-        segregationSteps: [
-          'Remove synthetic packing tape and plastic shipping pouches',
-          'Flatten box completely flat to maximize container capacity',
-          'Keep dry; do not mix grease-stained pizza boxes with clean cardboard',
-        ],
-        impact: {
-          co2SavedKg: 0.32,
-          energySavedKwh: 0.85,
-          waterSavedLiters: 7.5,
-          decompositionYears: 0.25,
-        },
-        upcyclingIdeas: [
-          'Use as weed-suppressing sheet mulch under garden beds',
-          'Reuse as protective floor lining during painting or DIY maintenance',
-        ],
-        localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
-        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Clean cellulose fiber recyclable up to 7 times.',
-      };
-    } else if (qLower.includes('can') || qLower.includes('aluminum') || qLower.includes('metal') || qLower.includes('tin')) {
-      return {
-        id: 'scan-' + Date.now(),
-        timestamp: new Date().toISOString(),
-        isValidWaste: true,
-        datasetClass: 'metal',
-        itemName: 'Aluminum Pop-Top Beverage Can',
-        brandOrModel: 'Beverage Container',
-        category: 'Metal & Aluminum',
-        primaryBin: 'Blue Bin (Recycling)',
-        binColor: '#2563eb',
-        confidence: 97,
-        recyclabilityScore: 100,
-        contaminationRisk: 'Low',
-        composition: [
-          { material: 'Aluminum Alloy 3004', percentage: 98 },
-          { material: 'Protective Internal Lacquer', percentage: 2 },
-        ],
-        segregationSteps: [
-          'Empty remaining beverage residues into sink',
-          'Rinse lightly with clean water',
-          'Leave pull tab attached to body and place in blue bin',
-        ],
-        impact: {
-          co2SavedKg: 0.21,
-          energySavedKwh: 0.72,
-          waterSavedLiters: 2.1,
-          decompositionYears: 200,
-        },
-        upcyclingIdeas: [
-          'Convert into small desktop pencil caddy or plant propagation container',
-          'Melt in high-temperature metal foundry for infinite secondary manufacturing',
-        ],
-        localDisposalNotice: 'Compliant with ISO 14001 environmental standards. Infinitely recyclable metal alloy.',
-        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Clean aluminum signature detected.',
-      };
-    } else if (qLower.includes('plastic') || qLower.includes('bottle') || qLower.includes('container') || qLower.includes('pet')) {
-      return {
-        id: 'scan-' + Date.now(),
-        timestamp: new Date().toISOString(),
-        isValidWaste: true,
-        datasetClass: 'plastic',
-        itemName: 'Polyethylene Packaging / Bottle',
-        brandOrModel: 'PET Plastic Item',
-        category: 'Recyclable Plastics',
-        primaryBin: 'Blue Bin (Recycling)',
-        binColor: '#2563eb',
-        confidence: 93,
-        recyclabilityScore: 92,
-        contaminationRisk: 'Low',
-        composition: [
-          { material: 'PET Plastic (#1)', percentage: 95 },
-          { material: 'PP Plastic Lid (#5)', percentage: 5 },
-        ],
-        segregationSteps: [
-          'Empty any liquid or residue contents into sink',
-          'Rinse lightly with cold water to avoid mold formation',
-          'Keep cap securely attached or crush bottle prior to binning',
-        ],
-        impact: {
-          co2SavedKg: 0.18,
-          energySavedKwh: 0.35,
-          waterSavedLiters: 1.4,
-          decompositionYears: 450,
-        },
-        upcyclingIdeas: [
-          'Repurpose as a drip irrigation funnel for potted plants',
-          'Transform into organized storage for small hardware or craft items',
-        ],
-        localDisposalNotice: 'Compliant with ISO 14001 environmental standards and municipal zero-waste guidelines.',
-        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Standard PET polymer detected with high recyclability score.',
-      };
-    } else if (imageBase64 && imageBase64.length > 100) {
-      // Default to standard recyclable plastics/container when valid image is provided without text
-      return {
-        id: 'scan-' + Date.now(),
-        timestamp: new Date().toISOString(),
-        isValidWaste: true,
-        datasetClass: 'plastic',
-        itemName: 'Plastic Beverage Bottle / Container',
-        brandOrModel: 'PET (#1) Recyclable Polymer',
-        category: 'Recyclable Plastics',
-        primaryBin: 'Blue Bin (Recycling)',
-        binColor: '#2563eb',
-        confidence: 95,
-        recyclabilityScore: 92,
-        contaminationRisk: 'Low',
-        composition: [
-          { material: 'Polyethylene Terephthalate (PET #1)', percentage: 94 },
-          { material: 'Polypropylene Closure (PP #5)', percentage: 6 },
-        ],
-        segregationSteps: [
-          'Empty any leftover liquids completely into sink',
-          'Rinse lightly with clean water',
-          'Compress or crush bottle to maximize bin volume and deposit in blue recycling bin',
-        ],
-        impact: {
-          co2SavedKg: 0.19,
-          energySavedKwh: 0.38,
-          waterSavedLiters: 1.5,
-          decompositionYears: 450,
-        },
-        upcyclingIdeas: [
-          'Repurpose as an automated slow-drip watering funnel for houseplants',
-          'Convert into modular organization caddies for small screws or stationery',
-        ],
-        localDisposalNotice: 'Compliant with ISO 14001 municipal recycling protocols for curbside PET collection.',
-        aiNotes: 'Analyzed via EcoSort AI Vision Engine. Clear thermoplastic polymer signature confirmed.',
+        upcyclingIdeas: ['Inspect packaging labels or recycling resin codes on the container.'],
+        localDisposalNotice: 'Image is too blurry, dark, or ambiguous to determine disposal stream with certainty. Never guess.',
+        localGuidanceDisclaimer: 'Always follow your local waste authority guidelines when sorting unidentified items.',
+        aiNotes: 'The visual AI model could not identify the item with sufficient certainty.',
       };
     }
 
-    return null;
+    // 2. Non-waste entity gatekeeping
+    if (data.isWasteItem === false) {
+      return {
+        id: 'scan-' + Date.now(),
+        timestamp: new Date().toISOString(),
+        isWasteItem: false,
+        isIdentifiable: true,
+        visibleObjectDescription: data.visibleObjectDescription || 'Non-waste subject',
+        itemName: 'Not a waste item',
+        brandOrModel: data.visibleObjectDescription || 'Non-waste entity',
+        category: 'Unknown',
+        primaryBin: 'Special / Local Collection',
+        binColor: '#64748b',
+        confidence: normalizedConfidence,
+        recyclabilityScore: 0,
+        contaminationRisk: 'Low',
+        composition: [{ material: 'N/A (Non-waste entity)', percentage: 100 }],
+        segregationSteps: [
+          'This subject is not a household, commercial, or discarded waste item.',
+          'Do not discard in municipal waste or recycling containers.',
+        ],
+        impact: {
+          co2SavedKg: 0,
+          energySavedKwh: 0,
+          waterSavedLiters: 0,
+          decompositionYears: 0,
+        },
+        upcyclingIdeas: [],
+        localDisposalNotice: data.rejectionReason || 'Identified as a non-waste subject (e.g. person, living animal, natural vista, or software screenshot).',
+        localGuidanceDisclaimer: 'Municipal waste streams are intended exclusively for discarded materials and packaging.',
+        aiNotes: `Observed: ${data.visibleObjectDescription || 'Non-waste subject'}. Classification as waste declined.`,
+      };
+    }
+
+    // 3. Category Normalization
+    let category: string = data.category || 'General/Residual';
+    const catLower = category.toLowerCase();
+    const nameLower = (data.itemName || '').toLowerCase();
+    const descLower = (data.visibleObjectDescription || '').toLowerCase();
+
+    // Cross-check: If name or visible object explicitly indicates banana / fruit / food / plant
+    if (
+      nameLower.includes('banana') || nameLower.includes('apple') || nameLower.includes('peel') ||
+      nameLower.includes('fruit') || nameLower.includes('vegetable') || nameLower.includes('food') ||
+      descLower.includes('banana') || descLower.includes('peel') || descLower.includes('fruit') ||
+      catLower.includes('organic') || catLower.includes('compost')
+    ) {
+      category = 'Organic/Compostable';
+    } else if (
+      catLower.includes('plastic') || (nameLower.includes('bottle') && !nameLower.includes('glass')) ||
+      descLower.includes('plastic bottle')
+    ) {
+      category = 'Recyclable Plastic';
+    } else if (catLower.includes('cardboard') || catLower.includes('paper') || nameLower.includes('cardboard') || nameLower.includes('box')) {
+      category = 'Paper/Cardboard';
+    } else if (catLower.includes('glass') || nameLower.includes('glass')) {
+      category = 'Glass';
+    } else if (catLower.includes('metal') || catLower.includes('aluminum') || (nameLower.includes('can') && !nameLower.includes('trash can'))) {
+      category = 'Metal';
+    } else if (catLower.includes('battery') || catLower.includes('e-waste') || catLower.includes('electronic')) {
+      category = 'E-waste';
+    } else if (catLower.includes('hazardous')) {
+      category = 'Hazardous';
+    }
+
+    // Enforce Category -> Bin -> Color mapping
+    let primaryBin = 'General Waste / Landfill';
+    let binColor = '#4b5563';
+
+    switch (category) {
+      case 'Organic/Compostable':
+        primaryBin = 'Compost / Organics Bin';
+        binColor = '#16a34a';
+        break;
+      case 'Recyclable Plastic':
+        primaryBin = 'Plastic Recycling Bin';
+        binColor = '#2563eb';
+        break;
+      case 'Paper/Cardboard':
+        primaryBin = 'Paper / Cardboard Bin';
+        binColor = '#eab308';
+        break;
+      case 'Glass':
+        primaryBin = 'Glass Recycling Bin';
+        binColor = '#0891b2';
+        break;
+      case 'Metal':
+        primaryBin = 'Metal Recycling Bin';
+        binColor = '#2563eb';
+        break;
+      case 'E-waste':
+        primaryBin = 'E-Waste Drop-off';
+        binColor = '#dc2626';
+        break;
+      case 'Hazardous':
+        primaryBin = 'Hazardous Waste Facility';
+        binColor = '#dc2626';
+        break;
+      default:
+        primaryBin = 'General Waste / Landfill';
+        binColor = '#4b5563';
+        break;
+    }
+
+    // Cross-check Composition consistency
+    let composition = Array.isArray(data.composition) && data.composition.length > 0
+      ? data.composition.map((c: any) => ({
+          material: c.material || 'Standard Composition',
+          percentage: typeof c.percentage === 'number' ? c.percentage : 100,
+        }))
+      : [{ material: 'Composite Material', percentage: 100 }];
+
+    // If Organic, purge any plastics/metals from composition
+    if (category === 'Organic/Compostable') {
+      const hasInconsistentPlastic = composition.some((c: any) =>
+        c.material.toLowerCase().includes('plastic') ||
+        c.material.toLowerCase().includes('pet') ||
+        c.material.toLowerCase().includes('polymer') ||
+        c.material.toLowerCase().includes('aluminum')
+      );
+      if (hasInconsistentPlastic) {
+        composition = [
+          { material: 'Organic Plant Cellulose & Moisture', percentage: 92 },
+          { material: 'Natural Bio-Minerals (Potassium, Nitrogen)', percentage: 8 },
+        ];
+      }
+    }
+
+    // Cross-check Preparation Steps consistency
+    let steps = Array.isArray(data.segregationSteps) && data.segregationSteps.length > 0
+      ? data.segregationSteps
+      : ['Deposit in designated municipal container'];
+
+    if (category === 'Organic/Compostable') {
+      const hasPlasticStep = steps.some((s: string) =>
+        s.toLowerCase().includes('crush bottle') ||
+        s.toLowerCase().includes('rinse can') ||
+        s.toLowerCase().includes('flatten box')
+      );
+      if (hasPlasticStep) {
+        steps = [
+          'Remove any non-compostable stickers, plastic ties, or tags',
+          'Do not wrap in conventional plastic bags; use certified compostable liners or paper bags',
+          'Deposit into your municipal compost/organics bin or backyard compost pile',
+        ];
+      }
+    }
+
+    return {
+      id: data.id || 'scan-' + Date.now(),
+      timestamp: data.timestamp || new Date().toISOString(),
+      isWasteItem: true,
+      isIdentifiable: true,
+      visibleObjectDescription: data.visibleObjectDescription || data.itemName,
+      itemName: data.itemName || 'Identified Waste Item',
+      brandOrModel: data.brandOrModel || '',
+      category,
+      primaryBin,
+      binColor,
+      confidence: normalizedConfidence,
+      recyclabilityScore: typeof data.recyclabilityScore === 'number' ? Math.round(Math.min(100, Math.max(0, data.recyclabilityScore))) : 80,
+      contaminationRisk: data.contaminationRisk || 'Low',
+      composition,
+      segregationSteps: steps,
+      impact: {
+        co2SavedKg: typeof data.impact?.co2SavedKg === 'number' ? data.impact.co2SavedKg : 0.2,
+        energySavedKwh: typeof data.impact?.energySavedKwh === 'number' ? data.impact.energySavedKwh : 0.4,
+        waterSavedLiters: typeof data.impact?.waterSavedLiters === 'number' ? data.impact.waterSavedLiters : 1.5,
+        decompositionYears: typeof data.impact?.decompositionYears === 'number' ? data.impact.decompositionYears : 10,
+      },
+      upcyclingIdeas: Array.isArray(data.upcyclingIdeas) ? data.upcyclingIdeas : [],
+      localDisposalNotice: data.localDisposalNotice || 'Follow local municipal sorting guidelines for this item.',
+      localGuidanceDisclaimer: 'Bin colors and sorting rules vary by local municipality; always follow your local waste management authority guidelines.',
+      aiNotes: data.aiNotes || `Identified ${data.itemName} as ${category}.`,
+    };
   }
 
   // Vite middleware setup for Development & Express static for Production
