@@ -289,7 +289,7 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
           </div>
 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight">
-            AI-Powered <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">Waste Intelligence</span> Studio
+            Smart <span className="bg-gradient-to-r from-emerald-400 to-teal-300 bg-clip-text text-transparent">Waste Intelligence</span> System
           </h1>
 
           <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
