@@ -236,28 +236,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
 
       </div>
 
-      {/* Metrics Availability & Transparency Disclosure */}
-      <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-400">
-        <div className="flex items-center gap-2">
-          <Info className="w-4 h-4 text-slate-400 shrink-0" />
-          <span>
-            <strong className="text-slate-300">Data Transparency:</strong> Unverifiable metrics (such as multi-facility contamination rates, connected hardware telemetry, or monthly municipal tonnages) are marked as <span className="text-amber-400 font-mono font-medium">Not Available</span> as they are not collected by this system.
-          </span>
-        </div>
-        <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-400 whitespace-nowrap">
-          Provenanced Data Only
-        </span>
-      </div>
-
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        {/* 12-Class Image Distribution Bar Chart */}
+        {/* Category Image Distribution Bar Chart */}
         <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white uppercase font-mono tracking-wider flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-emerald-400" />
-              12-Class Image Distribution (Dataset + Session)
+              Category Image Distribution
             </h2>
             <span className="text-[10px] text-slate-400 font-mono">Total: {totalAnalyzed.toLocaleString()} images</span>
           </div>
