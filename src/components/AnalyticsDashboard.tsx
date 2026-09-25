@@ -482,31 +482,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
 
       </div>
 
-      {/* Data Provenance & Infrastructure Specs */}
-      <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-6 space-y-3">
-        <h3 className="text-xs font-semibold text-white uppercase font-mono tracking-wider flex items-center gap-2">
-          <Database className="w-4 h-4 text-emerald-400" />
-          Dataset Provenance & Technical Metadata
-        </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-400">
-          <div>
-            <span className="text-slate-500 block text-[11px] font-mono">Dataset Identifier</span>
-            <span className="text-slate-200 font-mono font-medium">mostafaabla/garbage-classification</span>
-          </div>
-          <div>
-            <span className="text-slate-500 block text-[11px] font-mono">Total Verified Sample Count</span>
-            <span className="text-slate-200 font-mono font-medium">15,515 Images (0 Corrupted)</span>
-          </div>
-          <div>
-            <span className="text-slate-500 block text-[11px] font-mono">Image Formats</span>
-            <span className="text-slate-200 font-mono font-medium">15,481 JPEG / 34 PNG</span>
-          </div>
-          <div>
-            <span className="text-slate-500 block text-[11px] font-mono">Average Resolution</span>
-            <span className="text-slate-200 font-mono font-medium">350 x 352 pixels</span>
-          </div>
-        </div>
-      </div>
+
 
     </div>
   );
