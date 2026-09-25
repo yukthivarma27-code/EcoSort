@@ -82,15 +82,6 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenC
           {/* Action Buttons */}
           <div className="flex items-center gap-3">
             <button
-              id="btn-header-contact"
-              onClick={onOpenContact}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white border border-slate-700 hover:border-slate-600 transition-colors"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              Enterprise API
-            </button>
-
-            <button
               id="btn-header-classify"
               onClick={() => setActiveTab('classifier')}
               className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:from-emerald-400 hover:to-teal-400 transition-all shadow-md shadow-emerald-950/20 active:scale-95"
