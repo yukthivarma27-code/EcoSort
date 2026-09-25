@@ -299,21 +299,6 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
           <p className="text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
             Upload or capture waste items to receive neural classification, material composition diagnostics, bin routing, and estimated environmental impact.
           </p>
-
-          <div className="pt-2 flex flex-wrap justify-center gap-6 text-xs text-slate-400 font-mono">
-            <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Multimodal Vision AI</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-400" />
-              <span>Real-Time Inference</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Recycle className="w-4 h-4 text-teal-400" />
-              <span>Standardized Streams</span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -322,7 +307,7 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
           {/* Input & Scan Studio Column */}
-          <div className="lg:col-span-7 space-y-6">
+          <div className={currentResult ? "lg:col-span-7 space-y-6" : "lg:col-span-8 lg:col-start-3 space-y-6"}>
             
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6">
               
@@ -648,8 +633,8 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
           </div>
 
           {/* Results Analysis Column */}
-          <div className="lg:col-span-5 space-y-6">
-            {currentResult ? (
+          {currentResult && (
+            <div className="lg:col-span-5 space-y-6">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fadeIn">
                 
                 {/* Result Header */}
@@ -840,20 +825,8 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                 </div>
 
               </div>
-            ) : (
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 text-center space-y-4 text-slate-500 my-auto">
-                <div className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
-                  <Layers className="w-8 h-8" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-300">Awaiting Computer Vision Scan</h3>
-                  <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                    Upload an image or select a sample item on the left to trigger EcoSort AI classification.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
         </div>
       </div>
