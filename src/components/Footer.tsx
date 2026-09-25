@@ -20,7 +20,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms, onOp
                 <Leaf className="w-4 h-4" />
               </div>
               <span className="font-bold text-lg text-white font-mono tracking-tight">
-                EcoSort<span className="text-emerald-400">.AI</span>
+                EcoSort
               </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
