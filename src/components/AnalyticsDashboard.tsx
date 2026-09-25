@@ -359,10 +359,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Database className="w-4 h-4 text-emerald-400" />
-              Complete 12-Class Dataset Breakdown
+              Dataset Overview
             </h2>
             <p className="text-xs text-slate-400">
-              Verified ground-truth counts from <code className="text-emerald-400 font-mono text-[11px]">Garbage Classification</code> dataset.
+              Overview of the waste classification dataset used by EcoSort.
             </p>
           </div>
           <div className="text-xs font-mono text-slate-400">
