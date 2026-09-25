@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenC
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-xl tracking-tight text-white font-mono">
-                  EcoSort<span className="text-emerald-400">.AI</span>
+                  EcoSort
                 </span>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
