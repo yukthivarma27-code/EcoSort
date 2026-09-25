@@ -162,16 +162,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
               EcoSort <span className="text-emerald-400">Eco Insights</span>
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Data-driven intelligence calculated directly from 15,515 verified images in the 12-class Garbage Classification dataset and active session inputs.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <span className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs font-mono text-emerald-400 flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-            Dataset Verified (15,515 Images)
-          </span>
           <button 
             onClick={handleExportCSV}
             className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
