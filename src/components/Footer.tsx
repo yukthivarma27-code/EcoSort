@@ -11,7 +11,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms, onOp
   return (
     <footer className="bg-slate-950 text-slate-400 border-t border-slate-800 text-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           
           {/* Column 1: Brand & Tagline */}
           <div className="space-y-4 md:col-span-1">
@@ -38,30 +38,6 @@ export const Footer: React.FC<FooterProps> = ({ onOpenPrivacy, onOpenTerms, onOp
                 <Github className="w-4 h-4" />
               </a>
             </div>
-          </div>
-
-          {/* Column 2: Solutions */}
-          <div>
-            <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wider mb-4 font-mono">
-              Technology Solutions
-            </h3>
-            <ul className="space-y-2.5 text-xs">
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
-                AI Vision Waste Scanner
-              </li>
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
-                Smart Bin Sensor Integration
-              </li>
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
-                Municipal Contamination Analytics
-              </li>
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
-                Environmental Impact Reporting API
-              </li>
-              <li className="text-slate-400 hover:text-emerald-400 cursor-pointer transition-colors">
-                Circular Economy Material Auditing
-              </li>
-            </ul>
           </div>
 
           {/* Column 3: Corporate & Legal */}
