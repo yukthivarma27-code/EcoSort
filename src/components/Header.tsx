@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenC
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              Enterprise Analytics
+              Eco Insights
             </button>
 
             <button
@@ -121,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenC
           }`}
         >
           <BarChart3 className="w-4 h-4 mb-0.5" />
-          Analytics
+          Eco Insights
         </button>
         <button
           onClick={() => setActiveTab('catalog')}

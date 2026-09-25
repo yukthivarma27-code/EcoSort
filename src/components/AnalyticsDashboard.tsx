@@ -159,7 +159,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
               <BarChart3 className="w-5 h-5" />
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              EcoSort <span className="text-emerald-400">Dataset & Session Analytics</span>
+              EcoSort <span className="text-emerald-400">Eco Insights</span>
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
@@ -177,7 +177,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
             className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            Export Analytics CSV
+            Export Eco Insights CSV
           </button>
         </div>
       </div>
