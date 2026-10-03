@@ -1,14 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   BarChart3, PieChart as PieIcon, Layers, Download, Search, 
   Database, Sparkles, FileText, CheckCircle2, Info, ArrowUpRight,
-  ShieldCheck, RefreshCw
+  ShieldCheck, RefreshCw, TrendingUp, Clock, Tag
 } from 'lucide-react';
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
-import { ClassificationResult } from '../types';
+import { ClassificationResult, DbScanRecord, BackendStats } from '../types';
 import { DATASET_CLASSES, RAW_DATASET_REPORT } from '../data/datasetStats';
 
 interface AnalyticsDashboardProps {
@@ -18,6 +18,39 @@ interface AnalyticsDashboardProps {
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionScans }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
+  const [activeLogTab, setActiveLogTab] = useState<'database' | 'session'>('database');
+
+  // Backend SQLite stats and history state
+  const [dbStats, setDbStats] = useState<BackendStats | null>(null);
+  const [dbHistory, setDbHistory] = useState<DbScanRecord[]>([]);
+  const [isLoadingDb, setIsLoadingDb] = useState<boolean>(false);
+
+  const fetchDatabaseData = async () => {
+    setIsLoadingDb(true);
+    try {
+      const [statsRes, historyRes] = await Promise.all([
+        fetch('/api/stats').catch(() => null),
+        fetch('/api/history').catch(() => null)
+      ]);
+
+      if (statsRes && statsRes.ok) {
+        const statsData = await statsRes.json();
+        setDbStats(statsData);
+      }
+      if (historyRes && historyRes.ok) {
+        const historyData = await historyRes.json();
+        setDbHistory(Array.isArray(historyData) ? historyData : []);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch stats/history from backend:', err);
+    } finally {
+      setIsLoadingDb(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDatabaseData();
+  }, [sessionScans]);
 
   // Compute dynamic totals combined with live session scans
   const { totalAnalyzed, classData, streamData, recyclablesPercentage } = useMemo(() => {
@@ -109,23 +142,38 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
     });
   }, [sessionScans, searchTerm, filterCategory]);
 
+  // Filter SQLite DB history records
+  const filteredDbRecords = useMemo(() => {
+    return dbHistory.filter((rec) => {
+      const matchesSearch = (rec.predicted_category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (rec.guidance || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            rec.id.toString().includes(searchTerm);
+      const matchesCategory = filterCategory === 'All' || rec.predicted_category === filterCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [dbHistory, searchTerm, filterCategory]);
+
   const handleExportCSV = () => {
-    if (sessionScans.length === 0) {
-      // Export Dataset Summary CSV
+    if (activeLogTab === 'database' && dbHistory.length > 0) {
       const rows = [
-        ['Class Name', 'Stream', 'Image Count', 'Percentage of Total'],
-        ...classData.map(c => [c.name, c.stream, c.count.toString(), `${c.percentage}%`])
+        ['ID', 'Timestamp', 'Predicted Category', 'Confidence (%)', 'Guidance'],
+        ...dbHistory.map(r => [
+          r.id.toString(),
+          r.created_at,
+          `"${r.predicted_category}"`,
+          r.confidence.toString(),
+          `"${r.guidance.replace(/"/g, '""')}"`
+        ])
       ];
       const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement('a');
       link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `EcoSort_Dataset_Analytics.csv`);
+      link.setAttribute('download', `EcoSort_DB_History_${Date.now()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } else {
-      // Export Session Scans CSV
+    } else if (sessionScans.length > 0) {
       const rows = [
         ['Scan ID', 'Timestamp', 'Item Name', 'Category', 'Target Bin', 'Confidence (%)'],
         ...sessionScans.map(s => [
@@ -145,6 +193,19 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+    } else {
+      const rows = [
+        ['Class Name', 'Stream', 'Image Count', 'Percentage of Total'],
+        ...classData.map(c => [c.name, c.stream, c.count.toString(), `${c.percentage}%`])
+      ];
+      const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(e => e.join(',')).join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `EcoSort_Dataset_Analytics.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -159,82 +220,118 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
               <BarChart3 className="w-5 h-5" />
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              EcoSort <span className="text-emerald-400">Eco Insights</span>
+              EcoSort <span className="text-emerald-400">Eco Insights & Analytics</span>
             </h1>
           </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Real-time analytics powered by SQLite database (<span className="text-emerald-400 font-mono">ecosort.db</span>) and MobileNetV2.
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button 
+            onClick={fetchDatabaseData}
+            disabled={isLoadingDb}
+            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingDb ? 'animate-spin' : ''}`} />
+            Sync DB Stats
+          </button>
+          <button 
             onClick={handleExportCSV}
-            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-white border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-xs font-semibold text-slate-950 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
             <Download className="w-3.5 h-3.5" />
-            Export Eco Insights CSV
+            Export CSV
           </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards: Database & Model Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* Card 1: Total Dataset Images */}
+        {/* Card 1: Total SQLite DB Scans */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
           <div className="flex items-center justify-between text-slate-400 text-xs font-mono">
-            <span>Total Dataset Images</span>
+            <span>Total Database Scans</span>
             <Database className="w-4 h-4 text-emerald-400" />
           </div>
           <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
-            {RAW_DATASET_REPORT.totalImages.toLocaleString()}
+            {(dbStats?.total_scans ?? dbHistory.length).toLocaleString()}
           </p>
           <p className="text-[11px] text-slate-400">
-            Garbage Classification Benchmark (<span className="text-emerald-400 font-mono">12 classes</span>)
+            Recorded in <span className="text-emerald-400 font-mono">ecosort.db (scan_history)</span>
           </p>
         </div>
 
-        {/* Card 2: Waste Categories */}
+        {/* Card 2: Most Frequently Detected Category */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
           <div className="flex items-center justify-between text-slate-400 text-xs font-mono">
-            <span>Waste Classes</span>
-            <Layers className="w-4 h-4 text-teal-400" />
+            <span>Most Detected Category</span>
+            <TrendingUp className="w-4 h-4 text-teal-400" />
           </div>
-          <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
-            {RAW_DATASET_REPORT.numClasses}
+          <p className="text-xl sm:text-2xl font-extrabold text-teal-400 tracking-tight truncate">
+            {dbStats?.most_detected_category || (dbHistory.length > 0 ? dbHistory[0].predicted_category : 'Awaiting Scans')}
           </p>
           <p className="text-[11px] text-slate-400">
-            Verified material classification taxonomy
+            Highest frequency waste stream in DB
           </p>
         </div>
 
-        {/* Card 3: Session Items Scanned */}
+        {/* Card 3: Waste Categories Tracked */}
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
+          <div className="flex items-center justify-between text-slate-400 text-xs font-mono">
+            <span>Waste Categories Tracked</span>
+            <Layers className="w-4 h-4 text-amber-400" />
+          </div>
+          <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
+            {dbStats?.category_counts ? Object.keys(dbStats.category_counts).length : 8}
+          </p>
+          <p className="text-[11px] text-slate-400">
+            Active classification categories with guidance
+          </p>
+        </div>
+
+        {/* Card 4: Active Session Scans */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
           <div className="flex items-center justify-between text-slate-400 text-xs font-mono">
             <span>Active Session Scans</span>
-            <Sparkles className="w-4 h-4 text-emerald-400" />
+            <Sparkles className="w-4 h-4 text-purple-400" />
           </div>
           <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
             {sessionScans.length}
           </p>
           <p className="text-[11px] text-slate-400">
-            Items processed in current user session
-          </p>
-        </div>
-
-        {/* Card 4: Recyclables Share */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-mono">
-            <span>Recyclable Material Share</span>
-            <BarChart3 className="w-4 h-4 text-amber-400" />
-          </div>
-          <p className="text-3xl font-extrabold text-white font-mono tracking-tight">
-            {recyclablesPercentage}<span className="text-amber-400 text-xl">%</span>
-          </p>
-          <p className="text-[11px] text-slate-400">
-            Paper, cardboard, glass, metal, & plastic
+            Classifications processed in current tab
           </p>
         </div>
 
       </div>
+
+      {/* Database Category Breakdown Summary Cards */}
+      {dbStats && dbStats.category_counts && Object.keys(dbStats.category_counts).length > 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 className="text-sm font-semibold text-white uppercase font-mono tracking-wider flex items-center gap-2">
+              <Database className="w-4 h-4 text-emerald-400" />
+              SQLite Database Waste-Category Counts (/api/stats)
+            </h2>
+            <span className="text-[11px] text-slate-400 font-mono">Total DB Scans: {dbStats.total_scans}</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+            {Object.entries(dbStats.category_counts).map(([catName, count]) => (
+              <div key={catName} className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-1">
+                <span className="text-[11px] text-slate-300 font-medium truncate block">{catName}</span>
+                <p className="text-xl font-extrabold text-emerald-400 font-mono">{count}</p>
+                <p className="text-[10px] text-slate-400 font-mono">
+                  {dbStats.total_scans > 0 ? ((count / dbStats.total_scans) * 100).toFixed(1) : 0}% of scans
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -340,136 +437,177 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
 
       </div>
 
-      {/* Class Distribution Detail Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
-          <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Database className="w-4 h-4 text-emerald-400" />
-              Dataset Overview
-            </h2>
-            <p className="text-xs text-slate-400">
-              Overview of the waste classification dataset used by EcoSort.
-            </p>
-          </div>
-          <div className="text-xs font-mono text-slate-400">
-            Total Images: <span className="text-white font-bold">{RAW_DATASET_REPORT.totalImages.toLocaleString()}</span>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {classData.map((cls) => (
-            <div key={cls.rawKey} className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-1">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="font-semibold text-white truncate">{cls.name}</span>
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cls.color }}></span>
-              </div>
-              <p className="text-lg font-extrabold text-white font-mono">{cls.count.toLocaleString()}</p>
-              <p className="text-[10px] text-slate-400 font-mono">{cls.percentage}% of total</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Verified Active Session Classification History */}
+      {/* History Records View (Toggle between Database Scan History and Session Scans) */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
         
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <FileText className="w-4 h-4 text-emerald-400" />
-              Active Session Classification Log
-            </h2>
-            <p className="text-xs text-slate-400">
-              Real-time audit log of waste items classified during your current active session.
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Clock className="w-4 h-4 text-emerald-400" />
+                Scan History & Audit Logs
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              View persistent scan history stored in SQLite (<span className="text-emerald-400 font-mono">ecosort.db</span>) or current active session logs.
             </p>
           </div>
 
-          {sessionScans.length > 0 && (
-            <div className="flex items-center gap-3">
-              {/* Search Input */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Search item or category..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 w-48 sm:w-64"
-                />
-              </div>
-
-              {/* Category Filter */}
-              <select
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
-              >
-                <option value="All">All Categories</option>
-                {classData.map(c => (
-                  <option key={c.rawKey} value={c.name}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Tab Switcher */}
+          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setActiveLogTab('database')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeLogTab === 'database'
+                  ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              SQLite Database ({dbHistory.length})
+            </button>
+            <button
+              onClick={() => setActiveLogTab('session')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                activeLogTab === 'session'
+                  ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Session Log ({sessionScans.length})
+            </button>
+          </div>
         </div>
 
-        {sessionScans.length > 0 ? (
-          /* Session Scans Table */
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px]">
-                  <th className="py-3 px-3">Timestamp</th>
-                  <th className="py-3 px-3">Item Identification</th>
-                  <th className="py-3 px-3">Category</th>
-                  <th className="py-3 px-3">Target Bin</th>
-                  <th className="py-3 px-3 text-right">Confidence</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {filteredSessionScans.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
-                    <td className="py-3 px-3 font-mono text-slate-400 text-[11px]">
-                      {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td className="py-3 px-3 font-semibold text-white">
-                      {log.itemName}
-                    </td>
-                    <td className="py-3 px-3 text-slate-300">
-                      <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700">
-                        {log.category}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 font-medium" style={{ color: log.binColor }}>
-                      {log.primaryBin}
-                    </td>
-                    <td className="py-3 px-3 text-right font-mono text-emerald-400 font-semibold">
-                      {log.confidence ?? 95}%
-                    </td>
+        {/* Search & Filter Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search category, guidance..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 w-full"
+            />
+          </div>
+
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
+          >
+            <option value="All">All Categories</option>
+            {classData.map(c => (
+              <option key={c.rawKey} value={c.name}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Database Table View */}
+        {activeLogTab === 'database' ? (
+          dbHistory.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                    <th className="py-3 px-3">ID</th>
+                    <th className="py-3 px-3">Timestamp</th>
+                    <th className="py-3 px-3">Predicted Category</th>
+                    <th className="py-3 px-3 text-center">Confidence</th>
+                    <th className="py-3 px-3">Segregation / Disposal Guidance</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredDbRecords.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-3 font-mono text-slate-500 text-[11px] font-semibold">
+                        #{log.id}
+                      </td>
+                      <td className="py-3 px-3 font-mono text-slate-400 text-[11px] whitespace-nowrap">
+                        {new Date(log.created_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-emerald-400 border border-slate-700 font-medium">
+                          {log.predicted_category}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center font-mono text-emerald-400 font-semibold">
+                        {log.confidence}%
+                      </td>
+                      <td className="py-3 px-3 text-slate-300 max-w-md">
+                        <p className="text-xs leading-relaxed line-clamp-2 hover:line-clamp-none">
+                          {log.guidance}
+                        </p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-8 text-center space-y-3 text-slate-500">
+              <Database className="w-6 h-6 text-emerald-400 mx-auto" />
+              <div>
+                <h3 className="text-sm font-semibold text-slate-300">No SQLite Database Scans Yet</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  Run a waste scan using the <strong className="text-slate-400">AI Vision Classifier</strong> to record it in <strong className="text-slate-400">ecosort.db</strong>.
+                </p>
+              </div>
+            </div>
+          )
         ) : (
-          /* Empty Session State */
-          <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-8 text-center space-y-3 text-slate-500">
-            <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mx-auto text-slate-400">
-              <Sparkles className="w-5 h-5 text-emerald-400" />
+          /* Session Table View */
+          sessionScans.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px]">
+                    <th className="py-3 px-3">Timestamp</th>
+                    <th className="py-3 px-3">Item Identification</th>
+                    <th className="py-3 px-3">Category</th>
+                    <th className="py-3 px-3">Target Bin</th>
+                    <th className="py-3 px-3 text-right">Confidence</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredSessionScans.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-3 font-mono text-slate-400 text-[11px]">
+                        {new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="py-3 px-3 font-semibold text-white">
+                        {log.itemName}
+                      </td>
+                      <td className="py-3 px-3 text-slate-300">
+                        <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300 border border-slate-700">
+                          {log.category}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 font-medium" style={{ color: log.binColor }}>
+                        {log.primaryBin}
+                      </td>
+                      <td className="py-3 px-3 text-right font-mono text-emerald-400 font-semibold">
+                        {log.confidence ?? 95}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-300">No Active Session Scans Yet</h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Classify waste items using the <strong className="text-slate-400">AI Vision Classifier</strong> tab to log real-time classification records in this session table.
-              </p>
+          ) : (
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-8 text-center space-y-3 text-slate-500">
+              <Sparkles className="w-6 h-6 text-emerald-400 mx-auto" />
+              <div>
+                <h3 className="text-sm font-semibold text-slate-300">No Active Session Scans Yet</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  Scans performed in this browser tab will appear here.
+                </p>
+              </div>
             </div>
-          </div>
+          )
         )}
 
       </div>
-
-
 
     </div>
   );

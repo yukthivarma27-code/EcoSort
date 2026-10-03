@@ -186,14 +186,23 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
       const responseData = await res.json().catch(() => null);
 
       if (!res.ok || !responseData || responseData.error) {
-        const message = responseData?.error || 'Unable to classify image. Please upload a clear photo.';
+        const message = responseData?.message || responseData?.error || 'Unable to analyze image. Please try again.';
         setIsScanning(false);
         setCurrentResult(null);
         setErrorMessage(message);
         return;
       }
 
-      const data: ClassificationResult = responseData;
+      const isWaste = responseData.is_waste !== false && responseData.isValidWaste !== false;
+      const data: ClassificationResult = {
+        ...responseData,
+        is_waste: isWaste,
+        isWasteItem: isWaste,
+        confidence: typeof responseData.confidence === 'number'
+          ? (responseData.confidence <= 1 ? Math.round(responseData.confidence * 1000) / 10 : responseData.confidence)
+          : null
+      };
+
       if (selectedImage) {
         data.imageUrl = selectedImage;
       }
@@ -201,7 +210,9 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
       setTimeout(() => {
         setIsScanning(false);
         setCurrentResult(data);
-        onScanComplete(data);
+        if (isWaste && data.category) {
+          onScanComplete(data);
+        }
       }, 200);
     } catch (err: any) {
       clearInterval(interval);
@@ -535,11 +546,14 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
                 </div>
               )}
 
-              {/* Error Message Alert */}
+              {/* Validation / Error Message Alert */}
               {errorMessage && (
-                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                  <span>{errorMessage}</span>
+                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-3 shadow-lg animate-fadeIn">
+                  <AlertTriangle className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-semibold text-amber-200">Validation Notice</p>
+                    <p className="text-amber-300/90 leading-relaxed">{errorMessage}</p>
+                  </div>
                 </div>
               )}
 
@@ -637,192 +651,307 @@ EcoSort AI Technologies Inc. - Confidential Segregation Record
             <div className="lg:col-span-5 space-y-6">
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-6 animate-fadeIn">
                 
-                {/* Result Header */}
-                <div className="flex items-start justify-between border-b border-slate-800 pb-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                        {currentResult.confidence}% AI Match
-                      </span>
-                      <span className="text-[11px] text-slate-500 font-mono">
-                        {new Date(currentResult.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                {/* 1. NON-WASTE IMAGE DISPLAY */}
+                {currentResult.is_waste === false && (
+                  <div className="space-y-5">
+                    {/* Header */}
+                    <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1.5">
+                            <Info className="w-3 h-3 text-cyan-400" />
+                            Non-Waste Subject
+                          </span>
+                          <span className="text-[11px] text-slate-500 font-mono">
+                            {new Date(currentResult.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <h2 className="text-xl font-bold text-white mt-1.5">
+                          {currentResult.itemName || 'Non-Waste Entity'}
+                        </h2>
+
+                        <p className="text-xs text-cyan-400 font-mono mt-0.5">
+                          Classification: <span className="text-slate-300 font-sans">Not Discarded Waste</span>
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={handleReset}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors"
+                        title="Scan Another Item"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
                     </div>
 
-                    <h2 className="text-xl font-bold text-white mt-1">
-                      {currentResult.itemName}
-                    </h2>
+                    {/* Gemini Multimodal Image Analysis */}
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        AI Multimodal Image Analysis
+                      </span>
+                      <p className="text-xs text-slate-200 leading-relaxed">
+                        {currentResult.image_analysis || currentResult.visibleObjectDescription || "The image does not contain a recognizable waste item."}
+                      </p>
+                    </div>
 
-                    <p className="text-xs text-slate-400">
-                      Category: <span className="text-slate-200 font-medium">{currentResult.category}</span>
-                    </p>
+                    {/* Non-Waste Explanation Notice */}
+                    <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-300 font-mono uppercase">
+                        <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                        Waste Segregation Status
+                      </div>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        This image depicts a non-waste entity. EcoSort supports 12 waste categories (battery, biological, cardboard, clothes, glass, metal, paper, plastic, shoes, and trash). Because this subject is not discarded waste, no municipal segregation stream or disposal action is applicable.
+                      </p>
+                    </div>
 
-                    {currentResult.visibleObjectDescription && (
-                      <div className="mt-2 text-xs bg-slate-950/60 p-2 rounded-lg border border-slate-800 text-slate-300">
-                        <span className="text-[10px] text-slate-500 uppercase font-mono block">Detected Subject</span>
-                        <span>{currentResult.visibleObjectDescription}</span>
+                    {/* Scan Another Button */}
+                    <div className="pt-2">
+                      <button
+                        onClick={handleReset}
+                        className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" /> Analyze Another Image
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. UNCERTAIN / LOW-CONFIDENCE WASTE DISPLAY */}
+                {currentResult.is_waste === true && !currentResult.category && (
+                  <div className="space-y-5">
+                    {/* Header */}
+                    <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5">
+                            <AlertTriangle className="w-3 h-3 text-amber-400" />
+                            Uncertain Classification ({currentResult.confidence ? `${currentResult.confidence}%` : 'Low Margin'})
+                          </span>
+                          <span className="text-[11px] text-slate-500 font-mono">
+                            {new Date(currentResult.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <h2 className="text-xl font-bold text-white mt-1.5">
+                          {currentResult.itemName || 'Uncertain Waste Item'}
+                        </h2>
+                      </div>
+
+                      <button
+                        onClick={handleReset}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors"
+                        title="Scan Another Item"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Gemini Multimodal Analysis */}
+                    <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+                      <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        AI Image Observation
+                      </span>
+                      <p className="text-xs text-slate-200 leading-relaxed">
+                        {currentResult.image_analysis || "The image appears to contain a waste item, but the material is unclear."}
+                      </p>
+                    </div>
+
+                    {/* Guidance Request */}
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-2 text-xs text-amber-300">
+                      <p className="font-semibold text-amber-200 flex items-center gap-2">
+                        <Info className="w-4 h-4 text-amber-400 shrink-0" />
+                        Clearer Photo Recommended
+                      </p>
+                      <p className="leading-relaxed">
+                        {currentResult.guidance || "Please upload a clearer, well-lit photo of the item on a plain background so EcoSort can confidently classify it."}
+                      </p>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-2">
+                      <button
+                        onClick={handleReset}
+                        className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-xl text-xs transition-colors flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" /> Scan Another Photo
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. CONFIRMED VALID WASTE DISPLAY */}
+                {currentResult.is_waste === true && currentResult.category && (
+                  <div className="space-y-6">
+                    {/* Result Header */}
+                    <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] text-slate-500 font-mono">
+                            {new Date(currentResult.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <h2 className="text-xl font-bold text-white mt-1">
+                          {currentResult.itemName}
+                        </h2>
+
+                        <p className="text-xs text-slate-400">
+                          Category: <span className="text-slate-200 font-medium">{currentResult.category}</span>
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => downloadReport(currentResult)}
+                        className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors"
+                        title="Export Compliance Report"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Gemini Multimodal Image Analysis Card */}
+                    {currentResult.image_analysis && (
+                      <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          Visual Diagnostics
+                        </span>
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          {currentResult.image_analysis}
+                        </p>
                       </div>
                     )}
-                  </div>
 
-                  <button
-                    onClick={() => downloadReport(currentResult)}
-                    className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition-colors"
-                    title="Export Compliance Report"
-                  >
-                    <Download className="w-4 h-4" />
-                  </button>
-                </div>
+                    {/* Primary Container Badge */}
+                    <div 
+                      className="p-4 rounded-xl border text-white space-y-2 shadow-lg"
+                      style={{ 
+                        backgroundColor: `${currentResult.binColor || '#2563eb'}15`, 
+                        borderColor: `${currentResult.binColor || '#2563eb'}50` 
+                      }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
+                          Target Segregation Container
+                        </span>
+                        <span 
+                          className="w-3 h-3 rounded-full animate-ping"
+                          style={{ backgroundColor: currentResult.binColor || '#2563eb' }}
+                        />
+                      </div>
 
-                {/* Non-Waste or Unidentified Alerts */}
-                {currentResult.isWasteItem === false && currentResult.isIdentifiable && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-300 text-xs flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>Identified as a non-waste entity. This subject is not suitable for municipal waste or recycling containers.</span>
-                  </div>
-                )}
+                      <div className="text-lg font-extrabold flex items-center gap-2" style={{ color: currentResult.binColor || '#2563eb' }}>
+                        <Trash2 className="w-5 h-5" />
+                        <span>{currentResult.primaryBin}</span>
+                      </div>
 
-                {currentResult.isIdentifiable === false && (
-                  <div className="p-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-300 text-xs flex items-center gap-2">
-                    <Info className="w-4 h-4 shrink-0" />
-                    <span>Subject could not be recognized with sufficient certainty. Please take a clear, well-lit photo of the item on a plain background.</span>
-                  </div>
-                )}
+                      <p className="text-xs text-slate-300 leading-snug">
+                        {currentResult.localDisposalNotice || currentResult.guidance}
+                      </p>
 
-                {/* Primary Container Badge */}
-                <div 
-                  className="p-4 rounded-xl border text-white space-y-2 shadow-lg"
-                  style={{ 
-                    backgroundColor: `${currentResult.binColor}15`, 
-                    borderColor: `${currentResult.binColor}50` 
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-300">
-                      Target Segregation Container
-                    </span>
-                    <span 
-                      className="w-3 h-3 rounded-full animate-ping"
-                      style={{ backgroundColor: currentResult.binColor }}
-                    />
-                  </div>
+                      {currentResult.localGuidanceDisclaimer && (
+                        <p className="text-[10px] text-slate-400 italic pt-1.5 border-t border-slate-800/80">
+                          * {currentResult.localGuidanceDisclaimer}
+                        </p>
+                      )}
+                    </div>
 
-                  <div className="text-lg font-extrabold flex items-center gap-2" style={{ color: currentResult.binColor }}>
-                    <Trash2 className="w-5 h-5" />
-                    <span>{currentResult.primaryBin}</span>
-                  </div>
+                    {/* Material Composition */}
+                    {Array.isArray(currentResult.composition) && currentResult.composition.length > 0 && (
+                      <div className="space-y-3">
+                        <h3 className="text-xs font-semibold text-slate-300 font-mono uppercase tracking-wider flex items-center justify-between">
+                          <span>Material Composition</span>
+                          <span className="text-[10px] text-emerald-400">{currentResult.recyclabilityScore ?? 90}% Feasible</span>
+                        </h3>
 
-                  <p className="text-xs text-slate-300 leading-snug">
-                    {currentResult.localDisposalNotice}
-                  </p>
-
-                  {currentResult.localGuidanceDisclaimer && (
-                    <p className="text-[10px] text-slate-400 italic pt-1.5 border-t border-slate-800/80">
-                      * {currentResult.localGuidanceDisclaimer}
-                    </p>
-                  )}
-                </div>
-
-                {/* Material Composition */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-semibold text-slate-300 font-mono uppercase tracking-wider flex items-center justify-between">
-                    <span>Material Composition</span>
-                    <span className="text-[10px] text-emerald-400">{currentResult.recyclabilityScore ?? 90}% Feasible</span>
-                  </h3>
-
-                  <div className="space-y-2">
-                    {(currentResult.composition || []).map((comp, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <div className="flex justify-between text-xs text-slate-300">
-                          <span>{comp.material}</span>
-                          <span className="font-mono text-emerald-400">{comp.percentage}%</span>
-                        </div>
-                        <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
-                          <div 
-                            className="bg-emerald-500 h-full rounded-full"
-                            style={{ width: `${comp.percentage}%` }}
-                          />
+                        <div className="space-y-2">
+                          {currentResult.composition.map((comp, idx) => (
+                            <div key={idx} className="space-y-1">
+                              <div className="flex justify-between text-xs text-slate-300">
+                                <span>{comp.material}</span>
+                                <span className="font-mono text-emerald-400">{comp.percentage}%</span>
+                              </div>
+                              <div className="w-full bg-slate-950 rounded-full h-1.5 overflow-hidden">
+                                <div 
+                                  className="bg-emerald-500 h-full rounded-full"
+                                  style={{ width: `${comp.percentage}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    )}
 
-                {/* Mandatory Segregation Protocols */}
-                <div className="space-y-2.5 pt-2 border-t border-slate-800">
-                  <h3 className="text-xs font-semibold text-slate-300 font-mono uppercase tracking-wider">
-                    Preparation Steps
-                  </h3>
+                    {/* Mandatory Segregation Protocols */}
+                    {Array.isArray(currentResult.segregationSteps) && currentResult.segregationSteps.length > 0 && (
+                      <div className="space-y-2.5 pt-2 border-t border-slate-800">
+                        <h3 className="text-xs font-semibold text-slate-300 font-mono uppercase tracking-wider">
+                          Preparation Steps
+                        </h3>
 
-                  <div className="space-y-2">
-                    {(currentResult.segregationSteps || []).map((step, idx) => (
-                      <div key={idx} className="flex items-start gap-2 text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                        <span>{step}</span>
+                        <div className="space-y-2">
+                          {currentResult.segregationSteps.map((step, idx) => (
+                            <div key={idx} className="flex items-start gap-2 text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                              <span>{step}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    )}
 
-                {/* Environmental Savings Metrics */}
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
-                  <h3 className="text-xs font-semibold text-emerald-400 font-mono uppercase tracking-wider flex items-center gap-1.5">
-                    <Recycle className="w-3.5 h-3.5" />
-                    Calculated Carbon & Resource Savings
-                  </h3>
+                    {/* Environmental Savings Metrics */}
+                    {currentResult.impact && (
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <h3 className="text-xs font-semibold text-emerald-400 font-mono uppercase tracking-wider flex items-center gap-1.5">
+                          <Recycle className="w-3.5 h-3.5" />
+                          Calculated Carbon & Resource Savings
+                        </h3>
 
-                  <div className="grid grid-cols-3 gap-2 text-center font-mono">
-                    <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
-                      <p className="text-[10px] text-slate-400">CO2 Saved</p>
-                      <p className="text-sm font-bold text-emerald-400">{currentResult.impact?.co2SavedKg ?? 0.2} kg</p>
+                        <div className="grid grid-cols-3 gap-2 text-center font-mono">
+                          <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
+                            <p className="text-[10px] text-slate-400">CO2 Saved</p>
+                            <p className="text-sm font-bold text-emerald-400">{currentResult.impact.co2SavedKg ?? 0.2} kg</p>
+                          </div>
+                          <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
+                            <p className="text-[10px] text-slate-400">Energy</p>
+                            <p className="text-sm font-bold text-amber-400">{currentResult.impact.energySavedKwh ?? 0.4} kWh</p>
+                          </div>
+                          <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
+                            <p className="text-[10px] text-slate-400">Water</p>
+                            <p className="text-sm font-bold text-teal-400">{currentResult.impact.waterSavedLiters ?? 1.5} L</p>
+                          </div>
+                        </div>
+
+                        <p className="text-[11px] text-slate-400 text-center">
+                          Landfill Persistence: <span className="text-amber-400 font-mono font-semibold">{currentResult.impact.decompositionYears ?? 100} years</span>
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Reset or Export Bar */}
+                    <div className="flex gap-3 pt-2">
+                      <button
+                        onClick={handleReset}
+                        className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Scan Another Item
+                      </button>
+                      <button
+                        onClick={() => downloadReport(currentResult)}
+                        className="px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-medium border border-emerald-500/30 rounded-xl text-xs transition-colors flex items-center gap-1.5"
+                      >
+                        <FileText className="w-3.5 h-3.5" /> Export PDF/TXT
+                      </button>
                     </div>
-                    <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
-                      <p className="text-[10px] text-slate-400">Energy</p>
-                      <p className="text-sm font-bold text-amber-400">{currentResult.impact?.energySavedKwh ?? 0.4} kWh</p>
-                    </div>
-                    <div className="p-2 bg-slate-900 rounded-lg border border-slate-800">
-                      <p className="text-[10px] text-slate-400">Water</p>
-                      <p className="text-sm font-bold text-teal-400">{currentResult.impact?.waterSavedLiters ?? 1.5} L</p>
-                    </div>
-                  </div>
 
-                  <p className="text-[11px] text-slate-400 text-center">
-                    Landfill Persistence: <span className="text-amber-400 font-mono font-semibold">{currentResult.impact?.decompositionYears ?? 100} years</span>
-                  </p>
-                </div>
-
-                {/* Circular Economy Upcycling */}
-                {Array.isArray(currentResult.upcyclingIdeas) && currentResult.upcyclingIdeas.length > 0 && (
-                  <div className="space-y-2">
-                    <h3 className="text-xs font-semibold text-slate-300 font-mono uppercase tracking-wider">
-                      Circular Economy Reuse
-                    </h3>
-                    <ul className="space-y-1.5 text-xs text-slate-400">
-                      {currentResult.upcyclingIdeas.map((idea, idx) => (
-                        <li key={idx} className="flex items-start gap-1.5">
-                          <span className="text-emerald-400">•</span>
-                          <span>{idea}</span>
-                        </li>
-                      ))}
-                    </ul>
                   </div>
                 )}
-
-                {/* Reset or Export Bar */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={handleReset}
-                    className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Scan Another Item
-                  </button>
-                  <button
-                    onClick={() => downloadReport(currentResult)}
-                    className="px-4 py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-medium border border-emerald-500/30 rounded-xl text-xs transition-colors flex items-center gap-1.5"
-                  >
-                    <FileText className="w-3.5 h-3.5" /> Export PDF/TXT
-                  </button>
-                </div>
 
               </div>
             </div>

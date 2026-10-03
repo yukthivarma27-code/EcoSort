@@ -1,9 +1,9 @@
 import React from 'react';
-import { Leaf, Cpu, BarChart3, BookOpen, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
+import { Leaf, Cpu, BarChart3, Clock, BookOpen, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'classifier' | 'analytics' | 'catalog' | 'enterprise';
-  setActiveTab: (tab: 'classifier' | 'analytics' | 'catalog' | 'enterprise') => void;
+  activeTab: 'classifier' | 'analytics' | 'history' | 'catalog' | 'enterprise';
+  setActiveTab: (tab: 'classifier' | 'analytics' | 'history' | 'catalog' | 'enterprise') => void;
   onOpenContact: () => void;
 }
 
@@ -42,7 +42,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenC
             <button
               id="nav-classifier"
               onClick={() => setActiveTab('classifier')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                 activeTab === 'classifier'
                   ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenC
             <button
               id="nav-analytics"
               onClick={() => setActiveTab('analytics')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                 activeTab === 'analytics'
                   ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
@@ -66,9 +66,22 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenC
             </button>
 
             <button
+              id="nav-history"
+              onClick={() => setActiveTab('history')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                activeTab === 'history'
+                  ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+              }`}
+            >
+              <Clock className="w-4 h-4" />
+              Scan History
+            </button>
+
+            <button
               id="nav-catalog"
               onClick={() => setActiveTab('catalog')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                 activeTab === 'catalog'
                   ? 'bg-emerald-500 text-slate-950 font-semibold shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
@@ -113,6 +126,15 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onOpenC
         >
           <BarChart3 className="w-4 h-4 mb-0.5" />
           Eco Insights
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex flex-col items-center py-1 px-3 text-[11px] font-medium rounded-lg ${
+            activeTab === 'history' ? 'text-emerald-400 bg-slate-800' : 'text-slate-400'
+          }`}
+        >
+          <Clock className="w-4 h-4 mb-0.5" />
+          History
         </button>
         <button
           onClick={() => setActiveTab('catalog')}

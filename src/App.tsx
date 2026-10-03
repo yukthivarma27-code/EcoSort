@@ -3,12 +3,13 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { WasteClassifier } from './components/WasteClassifier';
 import { AnalyticsDashboard } from './components/AnalyticsDashboard';
+import { HistorySection } from './components/HistorySection';
 import { KnowledgeCatalog } from './components/KnowledgeCatalog';
 import { LegalModals } from './components/LegalModals';
 import { ClassificationResult } from './types';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'classifier' | 'analytics' | 'catalog' | 'enterprise'>('classifier');
+  const [activeTab, setActiveTab] = useState<'classifier' | 'analytics' | 'history' | 'catalog' | 'enterprise'>('classifier');
   const [scanHistory, setScanHistory] = useState<ClassificationResult[]>([]);
   const [activeModal, setActiveModal] = useState<'privacy' | 'terms' | 'contact' | null>(null);
 
@@ -38,6 +39,12 @@ export default function App() {
         {activeTab === 'analytics' && (
           <AnalyticsDashboard 
             sessionScans={scanHistory}
+          />
+        )}
+
+        {activeTab === 'history' && (
+          <HistorySection 
+            onScanClick={() => setActiveTab('classifier')}
           />
         )}
 

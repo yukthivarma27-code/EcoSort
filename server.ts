@@ -30,7 +30,15 @@ async function startServer() {
   };
 
   // API Route: Health Check
-  app.get('/api/health', (req, res) => {
+  app.get('/api/health', async (req, res) => {
+    try {
+      const fastApiHealth = await fetch('http://127.0.0.1:8000/api/health').catch(() => null);
+      if (fastApiHealth && fastApiHealth.ok) {
+        const data = await fastApiHealth.json();
+        return res.json(data);
+      }
+    } catch (_) {}
+
     res.json({
       status: 'ok',
       service: 'EcoSort AI Waste Intelligence Engine',
@@ -39,8 +47,71 @@ async function startServer() {
     });
   });
 
+  // API Route: Scan History (from SQLite via FastAPI backend or direct fallback)
+  app.get('/api/history', async (req, res) => {
+    try {
+      const proxyRes = await fetch('http://127.0.0.1:8000/api/history' + (req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '')).catch(() => null);
+      if (proxyRes && proxyRes.ok) {
+        const data = await proxyRes.json();
+        return res.json(data);
+      }
+    } catch (_) {}
+
+    // Fallback: Query SQLite database via Python script execution
+    try {
+      const { execSync } = await import('child_process');
+      const pyCmd = `python -c "from backend.database import SessionLocal, ScanHistory; from sqlalchemy import desc; db = SessionLocal(); records = db.query(ScanHistory).order_by(desc(ScanHistory.created_at)).limit(50).all(); import json; print(json.dumps([r.to_dict() for r in records])); db.close()"`;
+      const output = execSync(pyCmd, { encoding: 'utf-8', timeout: 3000 });
+      const records = JSON.parse(output.trim());
+      return res.json(records);
+    } catch (err) {
+      console.warn('History fallback query notice:', err);
+      return res.json([]);
+    }
+  });
+
+  // API Route: Scan Stats (from SQLite via FastAPI backend or direct fallback)
+  app.get('/api/stats', async (req, res) => {
+    try {
+      const proxyRes = await fetch('http://127.0.0.1:8000/api/stats').catch(() => null);
+      if (proxyRes && proxyRes.ok) {
+        const data = await proxyRes.json();
+        return res.json(data);
+      }
+    } catch (_) {}
+
+    // Fallback: Compute stats from SQLite via Python script execution
+    try {
+      const { execSync } = await import('child_process');
+      const pyCmd = `python -c "from backend.database import SessionLocal, ScanHistory; from sqlalchemy import func, desc; db = SessionLocal(); total = db.query(func.count(ScanHistory.id)).scalar() or 0; rows = db.query(ScanHistory.predicted_category, func.count(ScanHistory.id)).group_by(ScanHistory.predicted_category).order_by(desc(func.count(ScanHistory.id))).all(); counts = {r[0]: r[1] for r in rows}; most = rows[0][0] if rows else None; import json; print(json.dumps({'total_scans': total, 'category_counts': counts, 'most_detected_category': most})); db.close()"`;
+      const output = execSync(pyCmd, { encoding: 'utf-8', timeout: 3000 });
+      const stats = JSON.parse(output.trim());
+      return res.json(stats);
+    } catch (err) {
+      console.warn('Stats fallback query notice:', err);
+      return res.json({
+        total_scans: 0,
+        category_counts: {},
+        most_detected_category: null,
+      });
+    }
+  });
+
   // API Route: Waste AI Classification
   app.post('/api/classify', async (req, res) => {
+    // If FastAPI backend is running, delegate classification and database saving to it
+    try {
+      const proxyRes = await fetch('http://127.0.0.1:8000/api/classify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req.body || {}),
+      }).catch(() => null);
+
+      if (proxyRes && proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        return res.json(proxyData);
+      }
+    } catch (_) {}
     try {
       const { imageBase64, textPrompt, sampleName } = req.body || {};
 
@@ -268,6 +339,17 @@ CRITICAL INSTRUCTIONS:
 
       const parsed = JSON.parse(rawJson);
       const validatedResult = validateClassificationConsistency(parsed);
+
+      // Persist scan history record to SQLite database
+      if (validatedResult && validatedResult.isWasteItem) {
+        try {
+          const { exec } = await import('child_process');
+          const pyScript = `from backend.database import SessionLocal, ScanHistory; db = SessionLocal(); rec = ScanHistory(predicted_category='${(validatedResult.category || '').replace(/'/g, "\\'")}', confidence=${validatedResult.confidence || 90}, guidance='${(validatedResult.localDisposalNotice || validatedResult.segregationSteps?.[0] || '').replace(/'/g, "\\'")}'); db.add(rec); db.commit(); db.close()`;
+          exec(`python -c "${pyScript}"`, (err) => {
+            if (err) console.warn('SQLite background save notice:', err.message);
+          });
+        } catch (_) {}
+      }
 
       return res.json(validatedResult);
     } catch (error: any) {

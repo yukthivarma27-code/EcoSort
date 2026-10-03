@@ -50,20 +50,23 @@ export interface ClassificationResult {
   timestamp: string;
   itemName: string;
   visibleObjectDescription?: string;
+  image_analysis?: string;
+  is_waste?: boolean;
   isWasteItem?: boolean;
   isIdentifiable?: boolean;
   brandOrModel?: string;
-  category: WasteCategory;
-  primaryBin: BinType;
-  binColor: string; // hex or tailwind class
-  confidence: number; // 0-100 (real model inference confidence)
-  recyclabilityScore: number; // 0-100
-  contaminationRisk: 'Low' | 'Medium' | 'High';
-  composition: MaterialComposition[];
-  segregationSteps: string[];
-  impact: EnvironmentalImpact;
-  upcyclingIdeas: string[];
-  localDisposalNotice: string;
+  category: WasteCategory | null;
+  primaryBin: BinType | null;
+  binColor?: string; // hex or tailwind class
+  confidence: number | null; // 0-100 (real model inference confidence)
+  recyclabilityScore?: number; // 0-100
+  contaminationRisk?: 'Low' | 'Medium' | 'High' | 'None';
+  composition?: MaterialComposition[];
+  segregationSteps?: string[];
+  impact?: EnvironmentalImpact;
+  upcyclingIdeas?: string[];
+  localDisposalNotice?: string;
+  guidance?: string;
   localGuidanceDisclaimer?: string;
   imageUrl?: string;
   aiNotes?: string;
@@ -91,6 +94,21 @@ export interface CatalogItem {
   commonMistakes: string;
 }
 
+export interface DbScanRecord {
+  id: number;
+  predicted_category: string;
+  confidence: number;
+  guidance: string;
+  created_at: string;
+}
+
+export interface BackendStats {
+  total_scans: number;
+  category_counts: Record<string, number>;
+  most_detected_category: string | null;
+  category_breakdown?: { category: string; count: number; percentage: number; color: string }[];
+}
+
 export interface AnalyticsStats {
   totalScans: number;
   diversionRatePercent: number;
@@ -99,3 +117,4 @@ export interface AnalyticsStats {
   categoryBreakdown: { name: string; value: number; color: string }[];
   weeklyTrends: { day: string; recycled: number; composted: number; landfill: number }[];
 }
+
