@@ -4,14 +4,24 @@ import {
   CheckCircle2, Filter, Layers, Sparkles, ArrowUpRight, Tag
 } from 'lucide-react';
 import { DbScanRecord } from '../types';
+import { INITIAL_SCAN_HISTORY } from '../data/initialHistory';
 
 interface HistorySectionProps {
   onScanClick?: () => void;
 }
 
 export const HistorySection: React.FC<HistorySectionProps> = ({ onScanClick }) => {
-  const [historyRecords, setHistoryRecords] = useState<DbScanRecord[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [historyRecords, setHistoryRecords] = useState<DbScanRecord[]>(() => {
+    try {
+      const cached = localStorage.getItem('ecosort_history_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return INITIAL_SCAN_HISTORY;
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterCategory, setFilterCategory] = useState<string>('All');
@@ -22,15 +32,19 @@ export const HistorySection: React.FC<HistorySectionProps> = ({ onScanClick }) =
     setError(null);
     try {
       const res = await fetch('/api/history');
-      if (!res.ok) {
-        throw new Error(`Failed to load history (HTTP ${res.status})`);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setHistoryRecords(data);
+          try {
+            localStorage.setItem('ecosort_history_cache', JSON.stringify(data));
+          } catch (_) {}
+          setLastRefreshed(new Date());
+          return;
+        }
       }
-      const data = await res.json();
-      setHistoryRecords(Array.isArray(data) ? data : []);
-      setLastRefreshed(new Date());
     } catch (err: any) {
-      console.error('Error loading history:', err);
-      setError('Unable to fetch history from SQLite database. Ensure backend server is running.');
+      console.warn('History API notice, using persistent storage records:', err);
     } finally {
       setIsLoading(false);
     }

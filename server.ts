@@ -5,6 +5,8 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 
+import { INITIAL_SCAN_HISTORY } from './src/data/initialHistory';
+
 async function startServer() {
   const app = express();
   const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
@@ -53,7 +55,9 @@ async function startServer() {
       const proxyRes = await fetch('http://127.0.0.1:8000/api/history' + (req.url.includes('?') ? req.url.substring(req.url.indexOf('?')) : '')).catch(() => null);
       if (proxyRes && proxyRes.ok) {
         const data = await proxyRes.json();
-        return res.json(data);
+        if (Array.isArray(data) && data.length > 0) {
+          return res.json(data);
+        }
       }
     } catch (_) {}
 
@@ -63,11 +67,13 @@ async function startServer() {
       const pyCmd = `python -c "from backend.database import SessionLocal, ScanHistory; from sqlalchemy import desc; db = SessionLocal(); records = db.query(ScanHistory).order_by(desc(ScanHistory.created_at)).limit(50).all(); import json; print(json.dumps([r.to_dict() for r in records])); db.close()"`;
       const output = execSync(pyCmd, { encoding: 'utf-8', timeout: 3000 });
       const records = JSON.parse(output.trim());
-      return res.json(records);
+      if (Array.isArray(records) && records.length > 0) {
+        return res.json(records);
+      }
     } catch (err) {
       console.warn('History fallback query notice:', err);
-      return res.json([]);
     }
+    return res.json(INITIAL_SCAN_HISTORY);
   });
 
   // API Route: Scan Stats (from SQLite via FastAPI backend or direct fallback)
@@ -86,15 +92,32 @@ async function startServer() {
       const pyCmd = `python -c "from backend.database import SessionLocal, ScanHistory; from sqlalchemy import func, desc; db = SessionLocal(); total = db.query(func.count(ScanHistory.id)).scalar() or 0; rows = db.query(ScanHistory.predicted_category, func.count(ScanHistory.id)).group_by(ScanHistory.predicted_category).order_by(desc(func.count(ScanHistory.id))).all(); counts = {r[0]: r[1] for r in rows}; most = rows[0][0] if rows else None; import json; print(json.dumps({'total_scans': total, 'category_counts': counts, 'most_detected_category': most})); db.close()"`;
       const output = execSync(pyCmd, { encoding: 'utf-8', timeout: 3000 });
       const stats = JSON.parse(output.trim());
-      return res.json(stats);
+      if (stats && stats.total_scans > 0) {
+        return res.json(stats);
+      }
     } catch (err) {
       console.warn('Stats fallback query notice:', err);
-      return res.json({
-        total_scans: 0,
-        category_counts: {},
-        most_detected_category: null,
-      });
     }
+
+    const total = INITIAL_SCAN_HISTORY.length;
+    const categoryCounts: Record<string, number> = {};
+    for (const item of INITIAL_SCAN_HISTORY) {
+      const cat = item.predicted_category || 'Unknown';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    }
+    let mostDetected: string | null = null;
+    let maxCount = 0;
+    for (const [cat, cnt] of Object.entries(categoryCounts)) {
+      if (cnt > maxCount) {
+        maxCount = cnt;
+        mostDetected = cat;
+      }
+    }
+    return res.json({
+      total_scans: total,
+      category_counts: categoryCounts,
+      most_detected_category: mostDetected,
+    });
   });
 
   // API Route: Waste AI Classification

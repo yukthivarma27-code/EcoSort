@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import { ClassificationResult, DbScanRecord, BackendStats } from '../types';
 import { DATASET_CLASSES, RAW_DATASET_REPORT } from '../data/datasetStats';
+import { INITIAL_SCAN_HISTORY } from '../data/initialHistory';
 
 interface AnalyticsDashboardProps {
   sessionScans: ClassificationResult[];
@@ -21,8 +22,17 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
   const [activeLogTab, setActiveLogTab] = useState<'database' | 'session'>('database');
 
   // Backend SQLite stats and history state
+  const [dbHistory, setDbHistory] = useState<DbScanRecord[]>(() => {
+    try {
+      const cached = localStorage.getItem('ecosort_history_cache');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (_) {}
+    return INITIAL_SCAN_HISTORY;
+  });
   const [dbStats, setDbStats] = useState<BackendStats | null>(null);
-  const [dbHistory, setDbHistory] = useState<DbScanRecord[]>([]);
   const [isLoadingDb, setIsLoadingDb] = useState<boolean>(false);
 
   const fetchDatabaseData = async () => {
@@ -33,16 +43,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ sessionS
         fetch('/api/history').catch(() => null)
       ]);
 
+      if (historyRes && historyRes.ok) {
+        const historyData = await historyRes.json();
+        if (Array.isArray(historyData) && historyData.length > 0) {
+          setDbHistory(historyData);
+          try {
+            localStorage.setItem('ecosort_history_cache', JSON.stringify(historyData));
+          } catch (_) {}
+        }
+      }
+
       if (statsRes && statsRes.ok) {
         const statsData = await statsRes.json();
         setDbStats(statsData);
       }
-      if (historyRes && historyRes.ok) {
-        const historyData = await historyRes.json();
-        setDbHistory(Array.isArray(historyData) ? historyData : []);
-      }
     } catch (err) {
-      console.warn('Failed to fetch stats/history from backend:', err);
+      console.warn('Backend DB stats notice, utilizing local storage records:', err);
     } finally {
       setIsLoadingDb(false);
     }

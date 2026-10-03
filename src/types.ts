@@ -98,6 +98,7 @@ export interface DbScanRecord {
   id: number;
   predicted_category: string;
   confidence: number;
+  image_analysis?: string | null;
   guidance: string;
   created_at: string;
 }

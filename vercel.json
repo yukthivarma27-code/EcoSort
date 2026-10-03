@@ -12,6 +12,14 @@
       "destination": "/api/health"
     },
     {
+      "source": "/api/history",
+      "destination": "/api/history"
+    },
+    {
+      "source": "/api/stats",
+      "destination": "/api/stats"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

@@ -4,7 +4,7 @@ import {
   Trash2, ArrowRight, RefreshCw, Download, FileText, 
   Recycle, Cpu, Zap, Layers, Info, ShieldCheck, Play
 } from 'lucide-react';
-import { ClassificationResult } from '../types';
+import { ClassificationResult, DbScanRecord } from '../types';
 import { PRESET_SAMPLES } from '../data/presets';
 
 interface WasteClassifierProps {
@@ -212,6 +212,20 @@ export const WasteClassifier: React.FC<WasteClassifierProps> = ({ onScanComplete
         setCurrentResult(data);
         if (isWaste && data.category) {
           onScanComplete(data);
+          try {
+            const cached = localStorage.getItem('ecosort_history_cache');
+            const historyList = cached ? JSON.parse(cached) : [];
+            const newRecord: DbScanRecord = {
+              id: Date.now(),
+              predicted_category: data.category,
+              confidence: data.confidence || 95,
+              image_analysis: data.image_analysis || data.aiNotes || `Identified ${data.itemName}`,
+              guidance: data.localDisposalNotice || data.guidance || (data.segregationSteps?.[0] ?? 'Sort into proper recycling stream'),
+              created_at: data.timestamp || new Date().toISOString()
+            };
+            const updated = [newRecord, ...(Array.isArray(historyList) ? historyList : [])];
+            localStorage.setItem('ecosort_history_cache', JSON.stringify(updated));
+          } catch (_) {}
         }
       }, 200);
     } catch (err: any) {
